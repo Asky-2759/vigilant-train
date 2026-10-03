@@ -12,13 +12,12 @@ accents = {"US": "en-us",
            "West Midlands":"en-gb-x-gbcwmd"}
 
 
-def compare_pronunciation(text: str, audio_file: str, accent: str):
-    audio_ipa = parse_audio(audio_file).split()
+def compare_pronunciation(text: str, audio_phonemes: list[str], accent: str):
     
     expected_pronunciation = phonemize(text, language=accents.get(accent, "en"), backend="espeak")
     expected_ipa = ipa_table.segs(expected_pronunciation)
     
-    n, m = len(audio_ipa), len(expected_ipa)
+    n, m = len(audio_phonemes), len(expected_ipa)
     dp = [[0] * (m + 1) for _ in range(n + 1)]
     
     for i in range(n + 1):
