@@ -4,3 +4,9 @@ openpronounce==0.3.0
 fastapi>=0.110
 uvicorn[standard]>=0.27
 python-multipart>=0.0.9
+
+sounddevice>=0.4
+numpy
+scipy
+phonemizer
+panphon

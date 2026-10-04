@@ -1,60 +1,83 @@
-from phonemizer import phonemize
-from speech_to_ipa import parse_audio
-import panphon
+"""Exact IPA edit alignment. Differences are not validated pronunciation errors."""
+from functools import lru_cache
+import unicodedata
 
-ipa_table = panphon.FeatureTable()
-accents = {"US": "en-us",
-           "British": "en", 
-           "Carribean": "en-029", 
-           "Lancastrian": "en-gb-x-gbclan",
-           "RP": "en-gb-x-rp",
-           "Scotland": "en-gb-scotland",
-           "West Midlands":"en-gb-x-gbcwmd"}
+ACCENTS = {
+    "US": "en-us", "British": "en", "Caribbean": "en-029",
+    "Carribean": "en-029", "Lancastrian": "en-gb-x-gbclan",
+    "RP": "en-gb-x-rp", "Scotland": "en-gb-scotland",
+    "West Midlands": "en-gb-x-gbcwmd",
+}
 
 
-def compare_pronunciation(text: str, audio_phonemes: list[str], accent: str):
-    
-    expected_pronunciation = phonemize(text, language=accents.get(accent, "en"), backend="espeak")
-    expected_ipa = ipa_table.segs(expected_pronunciation)
-    
-    n, m = len(audio_phonemes), len(expected_ipa)
+@lru_cache(maxsize=1)
+def feature_table():
+    import panphon
+    return panphon.FeatureTable()
+
+
+def segment_ipa(value):
+    """Apply the same segmentation to both streams; reject unknown symbols.
+
+    Input must be IPA, not words, ARPABET, or model special tokens.
+    Stress and whitespace are ignored; phonetic distinctions are retained.
+    """
+    if isinstance(value, list):
+        if not all(isinstance(token, str) for token in value):
+            raise TypeError("Phoneme tokens must be strings.")
+        value = " ".join(value)
+    if not isinstance(value, str):
+        raise TypeError("Expected an IPA string or list of IPA strings.")
+    value = unicodedata.normalize("NFD", value)
+    clean = "".join(c for c in value if not c.isspace() and c not in "ˈˌ")
+    segments = feature_table().ipa_segs(clean)
+    if "".join(segments) != clean:
+        raise ValueError(f"Unrecognized IPA symbols in {value!r}; check recognizer output.")
+    return segments
+
+
+def align_phones(actual, expected):
+    """Return (kind, detected, expected) tuples in utterance order."""
+    n, m = len(actual), len(expected)
     dp = [[0] * (m + 1) for _ in range(n + 1)]
-    
     for i in range(n + 1):
         dp[i][0] = i
     for j in range(m + 1):
         dp[0][j] = j
-        
     for i in range(1, n + 1):
         for j in range(1, m + 1):
-            cost = 0 if audio_ipa[i-1] == expected_ipa[j-1] else 1
-            dp[i][j] = min(
-                dp[i-1][j] + 1,     # Deletion 
-                dp[i][j-1] + 1,     # Insertion
-                dp[i-1][j-1] + cost # Match or Substitution
-            )
-            
-    i, j = n, m
+            dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1,
+                           dp[i - 1][j - 1] + (actual[i - 1] != expected[j - 1]))
     differences = []
-    
-    while i > 0 or j > 0:
-        current_cost = dp[i][j]
-        
-        if i > 0 and j > 0 and audio_ipa[i-1] == expected_ipa[j-1] and current_cost == dp[i-1][j-1]:
-            i -= 1
-            j -= 1
-        elif i > 0 and j > 0 and current_cost == dp[i-1][j-1] + 1:
-            differences.append(("Substitution", audio_ipa[i-1], expected_ipa[j-1]))
-            i -= 1
-            j -= 1
-        elif i > 0 and current_cost == dp[i-1][j] + 1:
-            differences.append(("Extra", audio_ipa[i-1], "-"))
+    i, j = n, m
+    while i or j:
+        if i and j and actual[i - 1] == expected[j - 1] and dp[i][j] == dp[i - 1][j - 1]:
+            i, j = i - 1, j - 1
+        elif i and j and dp[i][j] == dp[i - 1][j - 1] + 1:
+            differences.append(("Substitution", actual[i - 1], expected[j - 1]))
+            i, j = i - 1, j - 1
+        elif i and dp[i][j] == dp[i - 1][j] + 1:
+            differences.append(("Extra", actual[i - 1], "-"))
             i -= 1
         else:
-            differences.append(("Missing", "-", expected_ipa[j-1]))
+            differences.append(("Missing", "-", expected[j - 1]))
             j -= 1
-            
-    differences.reverse()
-    return differences
-        
-    
+    return differences[::-1]
+
+
+def compare_pronunciation(text: str, audio_phonemes: list[str], accent: str = "US"):
+    from phonemizer import phonemize
+    if not text.strip():
+        raise ValueError("A target sentence is required.")
+    if accent not in ACCENTS:
+        raise ValueError(f"Unknown accent {accent!r}. Choose from {list(ACCENTS)}")
+    actual = segment_ipa(audio_phonemes)
+    if not actual:
+        raise ValueError("Recognizer returned no phonemes; retry the recording.")
+    expected = segment_ipa(phonemize(
+        text, language=ACCENTS[accent], backend="espeak", strip=True,
+        with_stress=False, preserve_punctuation=False,
+        language_switch="remove-flags"))
+    if not expected:
+        raise ValueError("Could not generate expected phonemes.")
+    return align_phones(actual, expected)

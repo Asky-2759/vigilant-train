@@ -154,3 +154,7 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local microphone recordings
+recordings/
+mic_test.wav
