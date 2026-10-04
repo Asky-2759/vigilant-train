@@ -58,12 +58,13 @@ textarea,select { width:100%; padding:12px 14px; border:1px solid var(--line); b
 .lp-strip a { color:var(--ink); }
 .lp-hero { position:relative; min-height:max(640px,calc(100svh - 41px)); display:grid; place-items:center; text-align:center; overflow:hidden; isolation:isolate; }
 .lp-hero img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:-2; }
-.lp-hero::after { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(to bottom,rgba(10,16,23,.75),rgba(10,16,23,.1) 35%,rgba(10,16,23,.3) 70%,var(--bg)); }
+.lp-hero::after { content:""; position:absolute; inset:0; z-index:-1; background:radial-gradient(ellipse at 50% 48%,rgba(5,15,30,.48),transparent 72%),linear-gradient(to bottom,rgba(10,16,23,.75),rgba(10,16,23,.18) 35%,rgba(10,16,23,.3) 70%,var(--bg)); }
 .lp-nav { position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center; padding:24px 40px; }
 .lp-links { display:flex; gap:32px; font-weight:500; } .lp-links a { color:var(--ink); text-decoration:none; } .lp-links a:hover { text-decoration:underline; text-underline-offset:6px; }
-.lp-center { padding:0 24px; } .lp-title { font-size:clamp(48px,9vw,120px); font-weight:600; letter-spacing:-.035em; line-height:1; text-shadow:0 2px 40px rgba(0,0,0,.4); }
-.lp-sub { font-size:clamp(18px,2.2vw,24px); margin:20px 0 36px; color:#d4deea; }
-.btn.ghost { background:rgba(10,16,23,.35); backdrop-filter:blur(6px); }
+.lp-center { padding:0 24px; } .lp-title { font-size:clamp(48px,9vw,120px); font-weight:600; letter-spacing:-.035em; line-height:1; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,.65),0 8px 32px rgba(0,0,0,.35); }
+.lp-sub { font-size:clamp(18px,2.2vw,24px); margin:20px 0 36px; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,.8); }
+.btn.ghost,.btn.ghost:visited { color:#fff; background:rgba(8,20,36,.82); border-color:rgba(255,255,255,.65); backdrop-filter:blur(6px); }
+.btn.ghost:hover { color:#fff; background:#142b45; border-color:#fff; }
 .lp-cards { max-width:1240px; margin:0 auto; padding:16px 32px 0; display:grid; grid-template-columns:repeat(6,1fr); gap:16px; }
 .lp-card { position:relative; isolation:isolate; min-height:420px; padding:32px; border-radius:var(--r); background-size:cover; display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-start; gap:10px; }
 .lp-card::before { content:""; position:absolute; inset:0; z-index:-1; border-radius:var(--r); background:linear-gradient(to top,rgba(10,16,23,.88),rgba(10,16,23,.25) 70%); }
