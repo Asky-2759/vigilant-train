@@ -1,3 +1,10 @@
+# Keys
+.venv/
+.cache/
+.env
+__pycache__/
+*.pyc
+
 # Logs
 logs
 *.log
