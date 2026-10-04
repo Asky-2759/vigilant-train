@@ -28,6 +28,8 @@ interface AnalysisResult {
   heard_ipa?: string;
   words: WordResult[];
   feedback?: string;
+  ai_feedback?: string | null;
+  ai_feedback_error?: string;
   breakdown?: ScoreTerm[];
   band?: { label: string; status: string };
   duration?: number;
@@ -339,7 +341,13 @@ export default function MainPage() {
               </ul>
             ) : <p>No words were flagged.</p>}
 
-            {result.feedback && <p><strong>Feedback:</strong> {result.feedback}</p>}
+            <section aria-labelledby="ai-feedback-heading">
+              <h3 id="ai-feedback-heading">AI pronunciation advice</h3>
+              {result.ai_feedback
+                ? <p>{result.ai_feedback}</p>
+                : <p role="status">{result.ai_feedback_error || 'AI feedback is not available.'}</p>}
+            </section>
+            {result.feedback && <p><strong>Scoring feedback:</strong> {result.feedback}</p>}
             {result.reference_error && (
               <p>The reference voice was unavailable, so the score used the other pronunciation measures.</p>
             )}
