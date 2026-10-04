@@ -35,6 +35,7 @@ export default function MainPage() {
 
   const [backendResponse, setBackendResponse] = useState<string>("");
   const [isCallingBackend, setIsCallingBackend] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
 
   /* ---------- Placeholder ---------- */
   async function callBackend() {
@@ -62,12 +63,24 @@ export default function MainPage() {
   return (
   <div>
     <h1>Speech Clarity</h1>
+
+    // Record button
     <p style={{ textAlign: 'center' }}>Press the button to start recording</p>
     <div style={{ display: "flex", justifyContent: "center" }}>
-      <button onClick={callBackend} disabled={!speechText.trim() || isCallingBackend}>
-        {isCallingBackend ? "Recording..." : "Record"}
+      <button
+        onClick={() => {
+          setIsRecording((recording) => !recording);
+          if (!isRecording) {
+            void callBackend();
+          }
+        }}
+        disabled={!speechText.trim() || isCallingBackend}
+      >
+        {isRecording ? "Stop" : "Record"}
       </button>
     </div>
+
+    // Language selection and speech input
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
         <label htmlFor="language-select">Select a language</label>
