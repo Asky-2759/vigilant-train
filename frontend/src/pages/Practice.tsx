@@ -189,8 +189,8 @@ export default function Practice({ onBack }: { onBack: () => void }) {
             </select></label>}
           <label className="field">Recording
             <select value={mode} disabled={busy} onChange={e => setMode(e.target.value as 'manual' | 'auto')}>
-              <option value="manual">Start and stop myself</option>
-              <option value="auto">Stop after silence</option>
+              <option value="manual">Stop Manually</option>
+              <option value="auto">Stop automatically</option>
             </select></label>
           {live ? <button className="btn primary wide" onClick={() => stop.current()}>{phase === 'waiting' ? 'Cancel' : 'Stop and score'}</button>
             : <button className="btn primary wide" disabled={busy || !ready || !text.trim()} onClick={start}>

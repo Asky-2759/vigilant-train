@@ -4,7 +4,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
       <header className="bar"><span className="mark">Speech Clarity</span></header>
       <main className="hero">
         <div className="hero-text">
-          <h1>Find your next sound to practise.</h1>
+          <h1>Find your next sound to practice.</h1>
           <p className="lead">Type a sentence, listen to a clear reference voice, read it aloud, and see sound by sound where your pronunciation differs.</p>
           <button className="btn primary" onClick={onStart}>Get started</button>
         </div>
