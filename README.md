@@ -81,3 +81,18 @@ the project's environment setup.
 These are strict sequence differences, not calibrated pronunciation grades.
 Recognition errors and legitimate pronunciation variants may produce differences.
 Unrecognized IPA symbols cause an explicit error rather than silent deletion.
+
+
+### Friendly voice coach
+
+The practice studio includes a **Hear my coach** button with British, American,
+and Russian-accented English delivery and an optional humour toggle. Coaching
+uses the latest take's guidance (recording warnings take priority), with short
+encouraging scripts. It is not an open-ended chat model. The coach uses Eleven v3
+emotion/accent tags and chooses a matching account voice where available; delivery
+can vary, and the American pronunciation scoring reference stays separate.
+
+Set `ELEVENLABS_API_KEY` in your local, ignored `.env` to the actual API key shown
+when ElevenLabs creates it, not the key ID. Restart the Python server after
+changing it. The key stays on the server. Speech is requested only on button
+press and cached; if the provider fails, written coaching remains available.

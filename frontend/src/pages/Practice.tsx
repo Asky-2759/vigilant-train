@@ -28,6 +28,12 @@ export default function Practice({ onBack }: { onBack: () => void }) {
  const [voices, setVoices] = useState<{id: string; name: string}[]>([]);
  const [voiceId, setVoiceId] = useState('');
  const [playing, setPlaying] = useState(false);
+ const [coachStyle, setCoachStyle] = useState('british');
+ const [playful, setPlayful] = useState(true);
+ const [coachText, setCoachText] = useState('');
+ const [coachError, setCoachError] = useState('');
+ const [coachLoading, setCoachLoading] = useState(false);
+ const coachAbort = useRef<AbortController | null>(null);
  const [level, setLevel] = useState(0);
  const [seconds, setSeconds] = useState(0);
  const [maxChars, setMaxChars] = useState(400);
@@ -46,6 +52,7 @@ export default function Practice({ onBack }: { onBack: () => void }) {
  const live = phase === 'recording' || phase === 'waiting';
 
  function stopVoice() {
+   coachAbort.current?.abort(); coachAbort.current = null; setCoachLoading(false);
    clearTimeout(voiceTimer.current);
    const audio = voice.current; voice.current = null;
    if (audio) { audio.onended = audio.onerror = audio.onplaying = null; audio.pause(); audio.removeAttribute('src'); audio.load(); }
@@ -69,7 +76,7 @@ export default function Practice({ onBack }: { onBack: () => void }) {
    void health(); const timer = setInterval(health, 4000);
    void fetch('/api/config', {signal: controller.signal}).then(r => r.json()).then(c => { if (alive.current) { setMaxChars(c.max_text_chars || 400); setMaxUploadBytes(c.max_upload_bytes || 20 * 1024 * 1024); } }).catch(() => {});
    void fetch('/api/voices', {signal: controller.signal}).then(r => r.json()).then(v => { if (alive.current) { setVoices(v.voices || []); setVoiceId(v.selected || ''); } }).catch(() => {});
-   return () => { alive.current = false; clearInterval(timer); clearTimeout(voiceTimer.current); controller.abort(); captureAbort.current?.abort(); capture.current?.cancel(); analysisAbort.current?.abort(); const a = voice.current; if (a) { a.onended = a.onerror = a.onplaying = null; a.pause(); a.removeAttribute('src'); a.load(); } };
+   return () => { alive.current = false; clearInterval(timer); clearTimeout(voiceTimer.current); controller.abort(); coachAbort.current?.abort(); captureAbort.current?.abort(); capture.current?.cancel(); analysisAbort.current?.abort(); const a = voice.current; if (a) { a.onended = a.onerror = a.onplaying = null; a.pause(); a.removeAttribute('src'); a.load(); } };
  }, []);
  useEffect(() => () => { if (clip) URL.revokeObjectURL(clip); }, [clip]);
  useEffect(() => {
@@ -80,7 +87,7 @@ export default function Practice({ onBack }: { onBack: () => void }) {
    }, 500);
    return () => { clearTimeout(timer); controller.abort(); };
  }, [text, ready, maxChars]);
- function changeText(value: string) { setCurrentAttempt(null); setText(value); setResult(null); lastTake.current = null; setClip(''); setError(''); }
+ function changeText(value: string) { setCoachText(''); setCoachError(''); setCurrentAttempt(null); setText(value); setResult(null); lastTake.current = null; setClip(''); setError(''); }
  function speak(value: string, speed = 1) {
    stopVoice(); replay.current?.pause(); setError(''); setPlaying(true);
    const params = new URLSearchParams({text: value, speed: String(speed)}); if (voiceId) params.set('voice_id', voiceId);
@@ -92,8 +99,33 @@ export default function Practice({ onBack }: { onBack: () => void }) {
    audio.onerror = () => { finish(); if (voice.current === audio) setError('Reference voice unavailable. You can still record.'); };
    void audio.play().catch(() => { finish(); if (voice.current === audio) setError('Could not play the reference. Please retry.'); });
  }
+ async function hearCoach() {
+   stopVoice(); replay.current?.pause(); setCoachError(''); setCoachLoading(true); setPlaying(true);
+   const controller = new AbortController(); coachAbort.current = controller;
+   const timer = setTimeout(() => controller.abort(), 75000);
+   try {
+     const response = await fetch('/api/coach', {method: 'POST', headers: {'Content-Type': 'application/json'}, signal: controller.signal,
+       body: JSON.stringify({style: coachStyle, playful, guidance: result?.guidance?.message || '', warning: result?.recording_quality?.warnings[0] || '', focus: word?.word || ''})});
+     if (!response.ok) throw new Error('The coach could not prepare that feedback. Please retry.');
+     const payload = await response.json();
+     if (!alive.current || controller.signal.aborted) return;
+     setCoachText(payload.transcript); setCoachError(payload.error || '');
+     if (!payload.audio) { setPlaying(false); return; }
+     const audio = new Audio(`data:${payload.content_type};base64,${payload.audio}`); voice.current = audio;
+     const finish = () => { if (voice.current === audio) setPlaying(false); };
+     audio.onended = finish;
+     audio.onerror = () => { finish(); setCoachError('Audio could not play. Your coaching is written below.'); };
+     await audio.play().catch(() => { finish(); setCoachError('Playback was blocked. Try Hear my coach again.'); });
+   } catch (e) {
+     if (alive.current && coachAbort.current === controller) {
+       setPlaying(false);
+       if (controller.signal.aborted) setCoachError('Coach request stopped. You can try again.');
+       else setCoachError(e instanceof Error ? e.message : 'Coach unavailable. Please retry.');
+     }
+   } finally { clearTimeout(timer); if (coachAbort.current === controller) { coachAbort.current = null; if (alive.current) setCoachLoading(false); } }
+ }
  async function analyze(take: Take) {
-   setPhase('analyzing'); setError('');
+   setPhase('analyzing'); setError(''); setCoachText(''); setCoachError('');
    const controller = new AbortController(); analysisAbort.current = controller;
    let timedOut = false;
    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 180000);
@@ -177,6 +209,15 @@ export default function Practice({ onBack }: { onBack: () => void }) {
        {error && <p role="alert" className="error error-box">{error}</p>}
      </section>
      <section className="panel results" aria-labelledby="results-title"><div className="section-heading"><span className="step-number">03</span><div><p className="eyebrow">LISTEN. NOTICE. REPEAT.</p><h2 id="results-title">Your feedback</h2></div></div>
+       <div className="coach-card">
+         <div className="row"><div><p className="eyebrow">IN YOUR CORNER</p><h3>Your voice coach</h3></div><span className="coach-badge"><Icon name="spark" /> ElevenLabs</span></div>
+         <p>A little encouragement. One useful next step.</p>
+         <div className="coach-controls"><label className="field">Coach voice style<select value={coachStyle} disabled={busy || playing} onChange={e => { setCoachStyle(e.target.value); setCoachText(''); setCoachError(''); }}><option value="british">British · All right, mate</option><option value="american">American · You've got this</option><option value="russian">Russian-accented English</option></select></label><label className="coach-toggle"><input type="checkbox" checked={playful} disabled={busy || playing} onChange={e => { setPlayful(e.target.checked); setCoachText(''); }} /> A little humour</label></div>
+         <div className="reference-row"><button className="btn" disabled={busy || playing} onClick={() => void hearCoach()}><Icon name="play" />{coachLoading ? 'Preparing your coach…' : 'Hear my coach'}</button>{playing && <button className="linkish" onClick={stopVoice}>Stop audio</button>}</div>
+         {coachText && <p className="coach-transcript" aria-live="polite">{coachText}</p>}
+         {coachError && <p role="status" className="hint">{coachError}</p>}
+         <p className="hint">Expressive English coaching; accent delivery can vary. Your pronunciation reference stays American. Feedback follows your latest take.</p>
+       </div>
        {!result && <div className="results-empty"><span className={`empty-icon ${phase === 'analyzing' ? 'loading' : ''}`}><Icon name={phase === 'analyzing' ? 'spark' : 'mic'} /></span><h3>{phase === 'analyzing' ? 'Finding the details in your voice' : 'Your next step starts here'}</h3><p>{phase === 'analyzing' ? 'We’re comparing the sounds in your take. Your recording is available below.' : 'Record a phrase to see word-level feedback and hear what to practise next.'}</p><div className="empty-steps"><span>Record</span><span>Review</span><span>Try again</span></div></div>}
        {result && <><div className="feedback-summary"><div className="score-ring" style={{background: `conic-gradient(#245ddd ${Math.max(0,Math.min(100,result.score))}%, #dce6f5 0)`}}><p className="score-number">{Math.round(result.score)}<small>/100</small></p></div><div><span className="eyebrow">MODEL ESTIMATE</span><h3>{flagged ? `${flagged} ${flagged === 1 ? 'word' : 'words'} to revisit` : 'No words flagged'}</h3><p>{flagged ? 'Select a highlighted word to compare its sounds.' : 'Try a new phrase, or repeat this one.'}</p></div></div>
          {result.guidance && <div className="next-step"><span className="eyebrow">YOUR NEXT STEP</span><h3>{result.guidance.title}</h3><p>{result.guidance.message}</p>{result.guidance.position !== null && <button className="linkish" onClick={() => setSelected(result.words.findIndex(w => w.position === result.guidance!.position))}>Show this word</button>}</div>}

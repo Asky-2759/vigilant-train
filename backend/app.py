@@ -13,6 +13,7 @@ page can explain itself instead of hanging on the first recording.
 """
 
 import logging
+import base64
 import os
 import subprocess
 import tempfile
@@ -28,6 +29,7 @@ from fastapi.staticfiles import StaticFiles
 from . import elevenlabs as elevenlabs_module
 from . import scoring, settings as settings_module
 from .audio_processer import sharpen_audio_file
+from .coach import CoachRequest, script as coach_script, choose_voice
 
 logging.basicConfig(level=os.environ.get("PRONOUNCE_LOG_LEVEL", "INFO"),
                     format="%(asctime)s %(levelname)-7s %(name)s  %(message)s")
@@ -150,6 +152,21 @@ def voices():
 
 
 # Practice round
+
+@app.post("/api/coach")
+def coach(request: CoachRequest):
+    transcript, spoken = coach_script(request)
+    response = {"transcript": transcript, "audio": None, "note": "Expressive English coaching. Accent delivery may vary; scoring still uses the American reference."}
+    if _client is None:
+        return {**response, "error": "Voice coaching needs an ElevenLabs key on the server. Your written coaching is ready."}
+    try:
+        payload, content_type, _ = _client.synthesize(spoken, model_id="eleven_v3", voice_id=choose_voice(_client, request.style))
+        return {**response, "audio": base64.b64encode(payload).decode('ascii'), "content_type": content_type}
+    except elevenlabs_module.ElevenLabsError as error:
+        message = "The coach voice is unavailable right now. Check ElevenLabs credits and access to Eleven v3, or retry. Your written coaching is ready."
+        if "api key" in str(error).lower() or "401" in str(error):
+            message = "ElevenLabs rejected the server API key. Update ELEVENLABS_API_KEY in .env and restart the server. Your written coaching is ready."
+        return {**response, "error": message}
 
 @app.post("/api/phonemes")
 def phonemes(text: str = Form(...)):

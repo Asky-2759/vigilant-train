@@ -98,3 +98,15 @@
 @media(max-width:480px) { .studio-shell .studio { padding:0 16px 16px; }.studio-shell .brand-image { width:108px; height:52px; }.studio-shell .status { font-size:10px; padding:7px 9px; }.studio-shell .studio-heading h1 { font-size:36px; }.studio-steps a { flex-direction:column; text-align:center; flex:1; }.studio-shell .panel { padding:18px; }.studio-shell .feedback-summary { grid-template-columns:90px 1fr; padding:14px; gap:12px; }.studio-shell .score-number { font-size:44px; } }
 @media(prefers-reduced-motion:reduce) { .studio-shell *, .studio-shell *::before { animation:none!important; transition:none!important; scroll-behavior:auto; } }
 @media(max-width:480px) { .studio-shell .score-ring { width:86px; height:86px; }.studio-shell .score-ring .score-number { font-size:29px; }.studio-shell .feedback-summary h3 { font-size:17px; } }
+
+/* Coach sits alongside the learner, with a distinct warm mint surface. */
+.studio .coach-card { padding: 22px; margin: 22px 0; border: 1px solid #b6dbd4; border-radius: 20px; background: linear-gradient(125deg, #e8f8f0, #edf3ff); color: #18394a; }
+.studio .coach-card h3 { margin: 4px 0 0; font-size: 1.3rem; }
+.studio .coach-card > p { line-height: 1.65; }
+.studio .coach-badge { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; color: #176b60; }
+.studio .coach-badge svg { width: 17px; height: 17px; }
+.studio .coach-controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.studio .coach-controls .field { flex: 1; min-width: 180px; }
+.studio .coach-toggle { display: flex; gap: 8px; align-items: center; font-size: .85rem; }
+.studio .coach-toggle input { accent-color: #177864; width: 17px; height: 17px; }
+.studio .coach-transcript { padding: 16px; background: #ffffffbf; border-radius: 12px; border-left: 3px solid #21866d; }
