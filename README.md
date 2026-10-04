@@ -1,7 +1,7 @@
 <<<<<<< Updated upstream
 # vigilant-train
 =======
-# Pronunciation Trainer
+# Speech Clarity
 
 Paste English text, select a phrase, read it aloud, get a score and hear how it should
 have sounded.

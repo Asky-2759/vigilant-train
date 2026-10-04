@@ -1,5 +1,5 @@
 <#
-  Start the pronunciation trainer.
+  Start the Speech Clarity app.
 
     .\run.ps1              serve on the host/port from .env (default 127.0.0.1:8077)
     .\run.ps1 -Reload      auto-reload on source changes
@@ -35,7 +35,7 @@ $browseHost = $serverHost
 if ($serverHost -eq '0.0.0.0') { $browseHost = '127.0.0.1' }
 $url = "http://${browseHost}:${port}/"
 
-Write-Host "Pronunciation Trainer -> $url" -ForegroundColor Cyan
+Write-Host "Speech Clarity -> $url" -ForegroundColor Cyan
 Write-Host 'The speech models load in the background; the page says when it is ready.' -ForegroundColor DarkGray
 
 if (-not $NoBrowser) {

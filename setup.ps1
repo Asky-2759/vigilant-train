@@ -1,5 +1,5 @@
 <#
-  One-time setup for the pronunciation trainer.
+  One-time setup for the Speech Clarity app.
 
     .\setup.ps1              full setup
     .\setup.ps1 -SkipModels  skip the 2.4 GB model pre-download (first recording pays it instead)

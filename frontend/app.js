@@ -1,5 +1,5 @@
 /* ───────────────────────────────────────────────────────────────────────────
-   Pronunciation Trainer — browser side
+   Speech Clarity — browser side
 
    One practice round:
      text in  →  select a phrase  →  hear it  →  record yourself  →  score

@@ -1,4 +1,4 @@
-"""HTTP API and static host for the pronunciation trainer.
+"""HTTP API and static host for the Speech Clarity app.
 
 Flow of one practice round, from the browser's point of view:
 
@@ -74,7 +74,7 @@ async def lifespan(app):
     yield
 
 
-app = FastAPI(title="Pronunciation Trainer", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Speech Clarity", version="1.0.0", lifespan=lifespan)
 
 
 
