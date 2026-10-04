@@ -22,7 +22,6 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
-from starlette.background import BackgroundTask
 
 from . import elevenlabs as elevenlabs_module
 from . import scoring, settings as settings_module
@@ -147,31 +146,6 @@ def voices():
 
 
 # Practice round
-
-@app.post("/api/convert")
-def convert_audio(file: UploadFile = File(...)):
-    """Convert an uploaded browser recording to WAV and return the audio file."""
-    upload_path = wav_path = None
-    try:
-        upload_path = _save_upload(file)
-        wav_path = _to_wav(upload_path)
-        if not os.path.isfile(wav_path):
-            raise RuntimeError("audio conversion did not produce a WAV file")
-    except HTTPException:
-        _remove_temp_files(upload_path, wav_path)
-        raise
-    except Exception as e:  # noqa: BLE001
-        _remove_temp_files(upload_path, wav_path)
-        logger.exception("audio conversion failed")
-        raise HTTPException(status_code=500, detail=f"audio conversion failed: {e}") from e
-
-    return FileResponse(
-        wav_path,
-        media_type="audio/wav",
-        filename="recording.wav",
-        background=BackgroundTask(_remove_temp_files, upload_path, wav_path),
-    )
-
 
 @app.post("/api/phonemes")
 def phonemes(text: str = Form(...)):
@@ -307,14 +281,3 @@ def _to_wav(path):
     from openpronounce import audio
 
     return audio.webm2wav(path)
-
-
-def _remove_temp_files(*paths):
-    for path in paths:
-        if path:
-            try:
-                os.remove(path)
-            except FileNotFoundError:
-                continue
-            except OSError:
-                logger.exception("could not remove temporary audio file %s", path)
