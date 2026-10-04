@@ -27,6 +27,7 @@ from dataclasses import replace
 import numpy as np
 
 from . import settings as settings_module
+from .quality import recording_quality
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ MIN_DURATION_SECONDS = 0.25
 MIN_PEAK_AMPLITUDE = 0.005
 
 SCORE_BANDS = (
-    (90, "native-like", "good"),
+    (90, "strong reference match", "good"),
     (75, "great", "good"),
     (60, "good", "warning"),
     (40, "getting there", "serious"),
@@ -240,6 +241,7 @@ def analyze(wav_path, expected_text, voice_id=None):
         else "".join(differences.get("heard_phones") or [])
     )
     result["duration"] = round(len(waveform) / _speech.SAMPLING_RATE, 2)
+    result["recording_quality"] = recording_quality(waveform, _speech.SAMPLING_RATE)
     # Pitch and loudness curves: not part of the score, and not shown, since pitch
     # varies with mood and emphasis rather than with pronunciation.
     result.pop("prosody", None)
@@ -413,7 +415,7 @@ def _breakdown(result, differences):
         {
             "key": "sounds",
             "label": "Sounds",
-            "hint": "share of the expected phonemes you actually produced",
+            "hint": "Estimated sound-sequence agreement. Recognition errors and valid variants can affect this.",
             "value": round(_clip(100 * (1 - differences.get("phoneme_error_rate", 1.0))), 1),
             "weight": weights["phonemes"],
             "detail": f"phoneme error rate {differences.get('phoneme_error_rate', 0):.0%}",
@@ -421,7 +423,7 @@ def _breakdown(result, differences):
         {
             "key": "words",
             "label": "Words",
-            "hint": "how much of the phrase a listener would transcribe correctly",
+            "hint": "Agreement between the requested words and the machine transcript, allowing spacing differences. Not a human intelligibility test.",
             "value": round(_clip(100 * (1 - differences.get("word_error_rate", 1.0))), 1),
             "weight": weights["words"],
             "detail": f"word error rate {differences.get('word_error_rate', 0):.0%}",
@@ -430,8 +432,8 @@ def _breakdown(result, differences):
     if acoustic is not None:
         terms.append({
             "key": "voice",
-            "label": "Voice match",
-            "hint": "distance from the reference voice across the whole recording",
+            "label": "Reference similarity",
+            "hint": "Acoustic similarity to the reference. Voice and recording conditions can affect it; matching the speaker's identity is not the goal.",
             "value": round(acoustic, 1),
             "weight": weights["acoustic"],
             "detail": f"embedding distance {acoustic_distance:.2f} (best {good:.0f})",

@@ -161,3 +161,13 @@ textarea,select { width:100%; padding:12px 14px; border:1px solid var(--line); b
   .lp-hero:has(.lp-center :focus-visible)::before { opacity:1; }
 }
 @media (prefers-reduced-motion:reduce) { .lp-hero::before { transition:none; } }
+.dimension-grid { display:grid; gap:12px; }
+.dimension { padding:16px; border:1px solid #30455d; border-radius:12px; background:#0c1724; }
+.dimension > div { display:flex; justify-content:space-between; gap:12px; }
+.dimension > div > span { color:#a8d6ff; font-size:22px; font-variant-numeric:tabular-nums; }
+.dimension small { color:#a1b3c6; font-size:12px; }
+.dimension p,.quality-note p { color:#bac9d9; font-size:13px; margin:8px 0; }
+.dimension meter { display:block; width:100%; height:12px; margin:8px 0; accent-color:#87c7ff; }
+.quality-note { padding:15px; border-left:3px solid #87c7ff; background:#102235; border-radius:8px; font-size:14px; }
+.phone-differences { list-style:none; padding:0; display:grid; gap:8px; }
+.phone-differences li { display:flex; flex-wrap:wrap; gap:20px; font-size:14px; color:#b9cde0; }
