@@ -11,3 +11,6 @@ scipy
 phonemizer
 panphon
 noisereduce
+
+# Optional result-grounded feedback (frontend-testing integration)
+google-genai>=1.0

@@ -61,6 +61,8 @@ class Settings:
     # Resolved configuration for one run of the server
 
     api_key: str = ""
+    gemini_api_key: str = ""
+    gemini_model_id: str = "gemini-3.8-flash"
     voice_id: str = ""
     model_id: str = "eleven_multilingual_v2"
     # Model used when speaking raw IPA through a <phoneme> tag. Only some
@@ -108,6 +110,8 @@ def load():
         acoustic_good = None
     return Settings(
         api_key=os.environ.get("ELEVENLABS_API_KEY", "").strip(),
+        gemini_api_key=(os.environ.get("GEMINI_API_KEY", "").strip() or os.environ.get("GOOGLE_API_KEY", "").strip()),
+        gemini_model_id=os.environ.get("GEMINI_MODEL_ID", "gemini-3.8-flash").strip(),
         voice_id=os.environ.get("ELEVENLABS_VOICE_ID", "").strip(),
         model_id=os.environ.get("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2").strip(),
         phoneme_model_id=os.environ.get("ELEVENLABS_PHONEME_MODEL_ID", "eleven_flash_v2").strip(),

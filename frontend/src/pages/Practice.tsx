@@ -6,7 +6,7 @@ import type { Capture } from '../lib/capture';
 import { addAttempt, previousComparable, type Attempt } from '../lib/session';
 
 type Word = { position: number; word: string; expected: string; heard: string; status: string; phones: { expected: string; heard: string; confidence: number }[] };
-type Result = { sound_comparison?: string; score: number; transcribe: string; heard_ipa: string; has_reference: boolean; words: Word[]; breakdown: {key: string; label: string; value: number; weight: number; hint: string}[]; guidance?: {title: string; message: string; position: number | null}; recording_quality?: {label: string; warnings: string[]; note: string; duration_seconds: number} };
+type Result = { ai_feedback?: string | null; ai_feedback_error?: string; sound_comparison?: string; score: number; transcribe: string; heard_ipa: string; has_reference: boolean; words: Word[]; breakdown: {key: string; label: string; value: number; weight: number; hint: string}[]; guidance?: {title: string; message: string; position: number | null}; recording_quality?: {label: string; warnings: string[]; note: string; duration_seconds: number} };
 type Take = { id: string; blob: Blob; text: string; voiceId: string; filename: string };
 type Phase = 'idle' | 'opening' | 'waiting' | 'recording' | 'analyzing';
 const EXAMPLES = ['Three free trees.', 'Very good weather for a walk.', 'She sells seashells by the seashore.'];
@@ -115,7 +115,7 @@ export default function Practice({ onBack }: { onBack: () => void }) {
    const timer = setTimeout(() => controller.abort(), 75000);
    try {
      const response = await fetch('/api/coach', {method: 'POST', headers: {'Content-Type': 'application/json'}, signal: controller.signal,
-       body: JSON.stringify({style: coachStyle, playful, intent, take: takeNumber, guidance: feedback?.guidance?.message || '', warning: feedback?.recording_quality?.warnings[0] || '', focus: feedback?.guidance?.position != null || intent === 'simpler' ? feedback?.words[focusIndex]?.word || '' : ''})});
+       body: JSON.stringify({style: coachStyle, playful, intent, take: takeNumber, guidance: feedback?.ai_feedback || feedback?.guidance?.message || '', warning: feedback?.recording_quality?.warnings[0] || '', focus: feedback?.guidance?.position != null || intent === 'simpler' ? feedback?.words[focusIndex]?.word || '' : ''})});
      if (!response.ok) throw new Error('The coach could not prepare that feedback. Please retry.');
      const payload = await response.json();
      if (!alive.current || controller.signal.aborted) return;
@@ -229,6 +229,8 @@ export default function Practice({ onBack }: { onBack: () => void }) {
        </div>
        {!result && <div className="results-empty"><span className={`empty-icon ${phase === 'analyzing' ? 'loading' : ''}`}><Icon name={phase === 'analyzing' ? 'spark' : 'mic'} /></span><h3>{phase === 'analyzing' ? 'Finding the details in your voice' : 'Your next step starts here'}</h3><p>{phase === 'analyzing' ? 'We’re comparing the sounds in your take. Your recording is available below.' : 'Record a phrase to see word-level feedback and hear what to practise next.'}</p><div className="empty-steps"><span>Record</span><span>Review</span><span>Try again</span></div></div>}
        {result && <><div className="feedback-summary"><div className="score-ring" style={{background: `conic-gradient(#245ddd ${Math.max(0,Math.min(100,result.score))}%, #dce6f5 0)`}}><p className="score-number">{Math.round(result.score)}<small>/100</small></p></div><div><span className="eyebrow">MODEL ESTIMATE</span><h3>{flagged ? `${flagged} ${flagged === 1 ? 'word' : 'words'} to revisit` : 'No words flagged'}</h3><p>{flagged ? 'Select a highlighted word to compare its sounds.' : 'Try a new phrase, or repeat this one.'}</p></div></div>
+         {result.ai_feedback && <div className="next-step"><span className="eyebrow">AI PRACTICE TIP · GEMINI</span><p>{result.ai_feedback}</p><p className="hint">Based on recognized sounds, which can be wrong. Your voice coach reads this tip automatically.</p></div>}
+         {result.ai_feedback_error && <p className="hint" role="status">{result.ai_feedback_error}</p>}
          {result.guidance && <div className="next-step"><span className="eyebrow">YOUR NEXT STEP</span><h3>{result.guidance.title}</h3><p>{result.guidance.message}</p>{result.guidance.position !== null && <button className="linkish" onClick={() => setSelected(result.words.findIndex(w => w.position === result.guidance!.position))}>Show this word</button>}</div>}
          {previous && currentAttempt && <p className="progress-note">{Math.round(currentAttempt.score - previous.score) > 0 ? '+' : ''}{Math.round(currentAttempt.score - previous.score)} points compared with your previous comparable take. Small changes may be model variation.</p>}
          <div className="word-picker" aria-label="Word feedback">{result.words.map((w, index) => <button key={w.position} className={`word-pill ${w.status !== 'ok' ? 'flagged' : ''} ${selected === index ? 'selected' : ''}`} aria-pressed={selected === index} onClick={() => setSelected(index)}>{w.word}{w.status !== 'ok' && <span aria-label="possible difference"> ·</span>}</button>)}</div>

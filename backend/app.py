@@ -14,6 +14,7 @@ page can explain itself instead of hanging on the first recording.
 
 import logging
 import base64
+import ai_advice
 import os
 import subprocess
 import tempfile
@@ -250,7 +251,9 @@ def analyze(file: UploadFile = File(...), expected_text: str = Form(...), voice_
         upload_path = _save_upload(file)
         wav_path = _to_wav(upload_path)
         sharpen_audio_file(wav_path)
-        return scoring.analyze(wav_path, expected_text, voice_id or None)
+        result = scoring.analyze(wav_path, expected_text, voice_id or None)
+        _add_ai_feedback(result)
+        return result
     except scoring.AnalysisError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except HTTPException:
@@ -265,6 +268,27 @@ def analyze(file: UploadFile = File(...), expected_text: str = Form(...), voice_
                     os.remove(path)
                 except OSError:
                     pass
+
+
+def _add_ai_feedback(result):
+    """Optional teammate Gemini feedback; provider failures never discard a take."""
+    result['ai_feedback'] = None
+    if not SETTINGS.gemini_api_key:
+        result['ai_feedback_error'] = 'AI feedback is not configured. Your practice feedback is still available.'
+        return
+    if result.get('recording_quality', {}).get('warnings'):
+        result['ai_feedback_error'] = 'Try a clearer recording before requesting detailed sound advice.'
+        return
+    entries = [(w['word'], w.get('heard', ''), w.get('expected', ''))
+               for w in result.get('words', []) if w.get('status') != 'ok'][:6]
+    if not entries:
+        return
+    try:
+        result['ai_feedback'] = ai_advice.generate_pronunciation_feedback(
+            entries, api_key=SETTINGS.gemini_api_key, model=SETTINGS.gemini_model_id)
+    except Exception:
+        logger.warning('Optional Gemini feedback unavailable')
+        result['ai_feedback_error'] = 'AI feedback is temporarily unavailable. Your score and practice suggestions are ready.'
 
 
 # Helpers

@@ -97,3 +97,16 @@ when ElevenLabs creates it, not the key ID. Restart the Python server after
 changing it. The key stays on the server. Coaching speaks automatically after each take by default (with an off toggle), and can be replayed without generating again. Speech is cached; if the provider fails, written coaching remains available.
 
 The coach offers **Make it simpler** and a selected-word demonstration. Word playback uses plain spelling, never displayed IPA. Browser autoplay restrictions may require a tap on **Replay coach**. Creative delivery is used only for coaching.
+
+
+### Gemini pronunciation advice
+
+Integrated from the teammate's `frontend-testing` branch (`2afd718`). Set
+`GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in your local `.env`, install requirements,
+and restart. `GEMINI_MODEL_ID` defaults to `gemini-3.8-flash`.
+For up to six flagged words, the server sends word spellings and recognized/target
+IPA to Gemini for a short, cautious practice tip. Raw recordings are not sent to
+Gemini. The tip appears in feedback and feeds the automatic ElevenLabs coach.
+Poor recording quality takes priority; no flagged words means no Gemini request.
+A 20-second provider timeout and one attempt limit keep optional advice bounded.
+Missing keys/provider failures preserve ordinary scoring and coaching.
