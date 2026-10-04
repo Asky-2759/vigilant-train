@@ -85,29 +85,58 @@ function Get-PythonCandidates {
     return $candidates
 }
 
-function Find-Python {
-    $usable = @()
-    foreach ($candidate in Get-PythonCandidates) {
-        if (-not (Test-Path $candidate.Exe)) { continue }
-        try {
-            $probe = & $candidate.Exe -c "import sys,sysconfig;print(sys.version_info[0],sys.version_info[1],sysconfig.get_platform())"
-        } catch { continue }
-        if (-not $probe) { continue }
-        $parts = $probe.Trim().Split(' ')
-        $major = [int]$parts[0]; $minor = [int]$parts[1]
-        if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 10)) { continue }
-        if ($parts[2] -like '*mingw*' -or $parts[2] -like '*msys*') { continue }
-        # Prefer versions that have had torch wheels longest.
-        $rank = 99
-        if ($minor -eq 12) { $rank = 0 } elseif ($minor -eq 13) { $rank = 1 } elseif ($minor -eq 11) { $rank = 2 } elseif ($minor -eq 10) { $rank = 3 }
-        $usable += [pscustomobject]@{ Rank = $rank; Version = "$major.$minor"; Path = $candidate.Exe }
-    }
-    return ($usable | Sort-Object Rank | Select-Object -First 1)
+# Python 3.x minor versions every dependency ships prebuilt Windows wheels for, in
+# order of preference. 3.13+ is excluded: panphon (used by comparison.py) needs
+# editdistance, which has no 3.13 Windows wheel and so tries to compile from C
+# source -- failing on any machine without the MSVC build tools.
+$SupportedMinors = @(12, 11, 10)
+$PythonFix = 'winget install --id Python.Python.3.12 --exact'
+
+# Returns "major minor platform" for an interpreter, or $null if it cannot run.
+function Get-PythonInfo ($exe) {
+    try {
+        $probe = & $exe -c "import sys,sysconfig;print(sys.version_info[0],sys.version_info[1],sysconfig.get_platform())"
+    } catch { return $null }
+    if (-not $probe) { return $null }
+    $parts = $probe.Trim().Split(' ')
+    return [pscustomobject]@{ Major = [int]$parts[0]; Minor = [int]$parts[1]; Platform = $parts[2] }
 }
 
-$python = Find-Python
+function Test-SupportedPython ($info) {
+    return $info -and $info.Major -eq 3 -and $SupportedMinors -contains $info.Minor -and
+        $info.Platform -notlike '*mingw*' -and $info.Platform -notlike '*msys*'
+}
+
+function Find-Python {
+    $usable = @()
+    $rejected = @()
+    foreach ($candidate in Get-PythonCandidates) {
+        if (-not (Test-Path $candidate.Exe)) { continue }
+        $info = Get-PythonInfo $candidate.Exe
+        if (-not $info) { continue }
+        if (Test-SupportedPython $info) {
+            $usable += [pscustomobject]@{
+                Rank = [array]::IndexOf($SupportedMinors, $info.Minor)
+                Version = "$($info.Major).$($info.Minor)"; Path = $candidate.Exe
+            }
+        } else {
+            $rejected += "$($info.Major).$($info.Minor) ($($info.Platform))"
+        }
+    }
+    return [pscustomobject]@{
+        Best = ($usable | Sort-Object Rank | Select-Object -First 1)
+        Rejected = ($rejected | Select-Object -Unique)
+    }
+}
+
+$found = Find-Python
+$python = $found.Best
 if (-not $python) {
-    throw 'No CPython 3.10+ found. Install Python from https://www.python.org/downloads/ (an MSYS2/MinGW python cannot install torch).'
+    $seen = 'none'
+    if ($found.Rejected) { $seen = $found.Rejected -join ', ' }
+    throw ("No supported Python found (need 3.12, 3.11 or 3.10; found: $seen). " +
+        "Python 3.13+ cannot install panphon's editdistance dependency on Windows. " +
+        "Install 3.12 with:  $PythonFix  -- then open a new terminal and re-run .\setup.ps1")
 }
 Write-Ok "Python $($python.Version) at $($python.Path)"
 
@@ -115,11 +144,25 @@ Write-Ok "Python $($python.Version) at $($python.Path)"
 
 Write-Step 'Virtual environment'
 $venvPython = Join-Path $root '.venv\Scripts\python.exe'
+
+# A .venv left over from an earlier run may be on an unsupported Python (e.g.
+# 3.13, before it was ruled out). Reusing it would just fail again later in pip,
+# so rebuild it with the interpreter chosen above.
+if (Test-Path $venvPython) {
+    $venvInfo = Get-PythonInfo $venvPython
+    if (Test-SupportedPython $venvInfo) {
+        Write-Ok ".venv already exists (Python $($venvInfo.Major).$($venvInfo.Minor))"
+    } else {
+        $venvVersion = 'unknown'
+        if ($venvInfo) { $venvVersion = "$($venvInfo.Major).$($venvInfo.Minor)" }
+        Write-Warn2 ".venv uses Python $venvVersion, which is not supported - rebuilding it with $($python.Version)"
+        Remove-Item -Recurse -Force (Join-Path $root '.venv')
+    }
+}
 if (-not (Test-Path $venvPython)) {
     & $python.Path -m venv .venv
-    Write-Ok 'created .venv'
-} else {
-    Write-Ok '.venv already exists'
+    if ($LASTEXITCODE -ne 0) { throw 'could not create .venv' }
+    Write-Ok "created .venv (Python $($python.Version))"
 }
 
 & $venvPython -m pip install --upgrade pip --quiet
