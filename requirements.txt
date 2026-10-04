@@ -1,0 +1,6 @@
+# Install torch first, from the CPU wheel index (setup.ps1 does this):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+openpronounce==0.3.0
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
