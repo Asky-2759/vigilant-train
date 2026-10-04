@@ -1,9 +1,13 @@
+<<<<<<< Updated upstream
 # Keys
+=======
+>>>>>>> Stashed changes
 .venv/
 .cache/
 .env
 __pycache__/
 *.pyc
+<<<<<<< Updated upstream
 
 # Logs
 logs
@@ -154,3 +158,5 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+=======
+>>>>>>> Stashed changes
