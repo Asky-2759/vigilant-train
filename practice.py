@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from audio_recorder import record
 from speech_to_ipa import parse_audio
 from comparison import compare_pronunciation
+from audio_processer import sharpen_audio_file
 
 
 def run_attempt(text, mode, accent, output_dir):
@@ -38,11 +39,29 @@ def main():
         raise ValueError("Enter a target sentence.")
     mode = input("1 = automatic, 2 = manual: ").strip()
     accent = input("Accent (US or British; default US): ").strip() or "US"
+    
     if args.keep_audio:
-        run_attempt(text, mode, accent, Path(__file__).resolve().parent / "recordings")
+        directory = Path(__file__).resolve().parent / "recordings"
+        directory.mkdir(exist_ok=True)
+        
+        # Run attempt (which records audio into the directory)
+        run_attempt(text, mode, accent, directory)
+        
+        # Sharpen any generated audio files in the directory
+        for wav_file in directory.glob("*.wav"):
+            print(f"Sharpening: {wav_file.name}")
+            sharpen_audio_file(wav_file)
+            
     else:
         with TemporaryDirectory(prefix="pronunciation_") as directory:
-            run_attempt(text, mode, accent, directory)
+            dir_path = Path(directory)
+            
+            # Run attempt
+            run_attempt(text, mode, accent, dir_path)
+            
+            # Sharpen any generated audio files before temporary cleanup
+            for wav_file in dir_path.glob("*.wav"):
+                sharpen_audio_file(wav_file)
 
 
 if __name__ == "__main__":
