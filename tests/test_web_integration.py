@@ -15,8 +15,9 @@ from backend import settings as settings_module
 class AIAdviceTests(unittest.TestCase):
     def test_generate_feedback_calls_configured_gemini_model(self):
         with patch("google.genai.Client") as client_class:
-            client_class.return_value.models.generate_content.return_value.text = "  Focus on the first vowel.  "
-
+            client = client_class.return_value
+            client.__enter__.return_value = client
+            client.models.generate_content.return_value.text = "  Focus on the first vowel.  "
             feedback = ai_advice.generate_pronunciation_feedback(
                 [("hello", "hɛlo", "həlo")],
                 api_key="test-key",
@@ -25,7 +26,9 @@ class AIAdviceTests(unittest.TestCase):
 
         self.assertEqual(feedback, "Focus on the first vowel.")
         client_class.assert_called_once_with(api_key="test-key")
-        request = client_class.return_value.models.generate_content.call_args.kwargs
+        client.__enter__.assert_called_once_with()
+        client.__exit__.assert_called_once()
+        request = client.models.generate_content.call_args.kwargs
         self.assertEqual(request["model"], "test-model")
         self.assertIn('"phoneme_transcription": "hɛlo"', request["contents"])
         self.assertIn('"target_ipa": "həlo"', request["contents"])
@@ -39,7 +42,7 @@ class SettingsTests(unittest.TestCase):
             ):
                 settings = settings_module.load()
 
-        self.assertEqual(settings.gemini_model_id, "gemini-2.5-flash")
+        self.assertEqual(settings.gemini_model_id, "gemini-3.8-flash")
 
     def test_load_reads_exported_google_key_from_dotenv(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -151,7 +154,7 @@ class WebIntegrationTests(unittest.TestCase):
             patch.object(web, "_to_wav", return_value="analysis.wav"),
             patch.object(web.scoring, "analyze", return_value=payload),
             patch.object(web.ai_advice, "generate_pronunciation_feedback", side_effect=RuntimeError("provider unavailable")),
-            self.assertLogs("pronounce", level="ERROR"),
+            self.assertLogs("pronounce", level="ERROR") as captured_logs,
         ):
             response = self.client.post(
                 "/api/analyze",
@@ -163,6 +166,8 @@ class WebIntegrationTests(unittest.TestCase):
         self.assertEqual(response.json()["score"], 80)
         self.assertIsNone(response.json()["ai_feedback"])
         self.assertIn("could not be generated", response.json()["ai_feedback_error"])
+        self.assertIn("AI feedback generation failed", captured_logs.output[0])
+        self.assertIn("provider unavailable", captured_logs.output[0])
 
     def test_analysis_failure_also_cleans_upload(self):
         paths = []

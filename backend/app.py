@@ -31,9 +31,15 @@ from . import scoring, settings as settings_module
 
 load_dotenv()
 
-logging.basicConfig(level=os.environ.get("PRONOUNCE_LOG_LEVEL", "INFO"),
-                    format="%(asctime)s %(levelname)-7s %(name)s  %(message)s")
 logger = logging.getLogger("pronounce")
+logger.setLevel(os.environ.get("PRONOUNCE_LOG_LEVEL", "INFO"))
+logger.propagate = False
+if not logger.handlers:
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)-7s %(name)s  %(message)s")
+    )
+    logger.addHandler(console_handler)
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 DIST = FRONTEND / "dist"

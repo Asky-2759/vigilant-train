@@ -20,7 +20,7 @@ fallback. eSpeak NG and ffmpeg are still required by the backend.
 
 Put `GEMINI_API_KEY=your-key` (or `GOOGLE_API_KEY=your-key`) in the root `.env`
 file to show generated pronunciation advice alongside each score.
-`GEMINI_MODEL_ID` can override the default `gemini-2.5-flash` model. Restart
+`GEMINI_MODEL_ID` can override the default `gemini-3.8-flash` model. Restart
 the server after changing `.env` or its environment variables. AI feedback uses
 the analyzed words' heard and target IPA; scoring still works if Gemini is not
 configured or unavailable.

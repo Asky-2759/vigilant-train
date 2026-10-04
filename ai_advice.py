@@ -1,6 +1,6 @@
 import json
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
 
 
 def prepare_pronunciation_payload(entries: list[tuple[str, str, str]]) -> str:
@@ -43,10 +43,11 @@ def generate_pronunciation_feedback(
 
     from google import genai
 
-    response = genai.Client(api_key=api_key).models.generate_content(
-        model=model,
-        contents=prepare_pronunciation_payload(entries),
-    )
+    with genai.Client(api_key=api_key) as client:
+        response = client.models.generate_content(
+            model=model,
+            contents=prepare_pronunciation_payload(entries),
+        )
     feedback = response.text
     if not feedback or not feedback.strip():
         raise RuntimeError("Gemini returned empty pronunciation feedback")
