@@ -28,6 +28,7 @@ import numpy as np
 
 from . import settings as settings_module
 from .quality import recording_quality
+from .guidance import practice_guidance
 
 logger = logging.getLogger(__name__)
 
@@ -229,6 +230,14 @@ def analyze(wav_path, expected_text, voice_id=None):
     differences["word_error_rate"] = round(
         boundary_tolerant_wer(expected_text, result.get("transcribe") or ""), 4
     )
+    # The upstream overall PER is strict edit distance even though its word flags
+    # accept variants and near sounds. Use that same variant inventory for the
+    # sound dimension so an accepted pronunciation does not quietly lose points.
+    differences["phoneme_error_rate_raw"] = differences.get("phoneme_error_rate")
+    tolerant_rate = variant_aware_phone_rate(expected_text, differences)
+    result["sound_comparison"] = "strict" if tolerant_rate is None else "variant-aware"
+    if tolerant_rate is not None:
+        differences["phoneme_error_rate"] = round(tolerant_rate, 4)
     result["score"] = _total_score(result.get("acoustic_distance"), differences)
 
     heard_by_word = _heard_by_word(expected_text, differences)
@@ -242,6 +251,7 @@ def analyze(wav_path, expected_text, voice_id=None):
     )
     result["duration"] = round(len(waveform) / _speech.SAMPLING_RATE, 2)
     result["recording_quality"] = recording_quality(waveform, _speech.SAMPLING_RATE)
+    result["guidance"] = practice_guidance(result["words"], result["recording_quality"], differences["word_error_rate"])
     # Pitch and loudness curves: not part of the score, and not shown, since pitch
     # varies with mood and emphasis rather than with pronunciation.
     result.pop("prosody", None)
@@ -253,6 +263,35 @@ def analyze(wav_path, expected_text, voice_id=None):
 _MAX_MERGE = 3
 
 _WORD_TOKEN_RE = re.compile(r"[\w']+")
+
+
+def variant_aware_phone_rate(text, differences):
+    """Accepted variants and near-phone costs, without a second model pass.
+
+    Uses the pinned OpenPronounce alignment helper with decoded phones only;
+    this does NOT reuse frame posteriors or estimate human-rated accuracy.
+    Fall back to strict PER if all heard/expected phones cannot be accounted for.
+    Entirely missing words cost their full expected length.
+    """
+    if "heard_phones" not in differences or "expected_phones" not in differences:
+        return None
+    heard = differences["heard_phones"]
+    expected_count = sum(len(group) for group in differences["expected_phones"])
+    if not expected_count:
+        return None
+    try:
+        reports = _phones._word_reports(heard, text, LANG)
+        if sum(len(r["actual"]) for r in reports) != len(heard):
+            return None
+        if sum(len(r["expected"]) for r in reports) != expected_count:
+            return None
+        edits = sum(len(r["expected"]) if not r["actual"] else r["weighted_edits"] for r in reports)
+        if not np.isfinite(edits) or edits < 0:
+            return None
+        return edits / expected_count
+    except (AttributeError, KeyError, TypeError, ValueError):
+        logger.warning("Variant-aware phone alignment unavailable; using strict PER")
+        return None
 
 
 def boundary_tolerant_wer(expected_text, transcription):
@@ -343,6 +382,8 @@ def _heard_by_word(expected_text, differences):
 
 
 def _check_recording(waveform):
+    if not np.isfinite(waveform).all():
+        raise AnalysisError("that recording contains invalid audio data -- please record a new take")
     if waveform.size / _speech.SAMPLING_RATE < MIN_DURATION_SECONDS:
         raise AnalysisError("that recording is too short to score -- hold the button and read the phrase")
     if float(np.abs(waveform).max(initial=0.0)) < MIN_PEAK_AMPLITUDE:
@@ -462,7 +503,8 @@ def _word_verdicts(expected_text, differences, heard_by_word=None):
         elif heard_by_word is not None:
             heard = heard_by_word.get(position, "")
         else:
-            heard = "".join(group)
+            # Do not present expected sounds as if they were actually detected.
+            heard = ""
         verdicts.append({
             "position": position,
             "word": word,

@@ -14,8 +14,10 @@ page can explain itself instead of hanging on the first recording.
 
 import logging
 import os
+import subprocess
 import tempfile
 import threading
+import wave
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -127,6 +129,7 @@ def config():
         "slow_speed": SETTINGS.slow_speed,
         "reference": reference,
         "max_text_chars": SETTINGS.max_text_chars,
+        "max_upload_bytes": SETTINGS.max_upload_bytes,
     }
 
 
@@ -277,7 +280,22 @@ def _save_upload(upload):
 
 
 def _to_wav(path):
-    """Decode a browser recording (webm/opus, mp4, wav...) to 16 kHz mono wav."""
-    from openpronounce import audio
-
-    return audio.webm2wav(path)
+    """Bound decoding work; 60s accommodates automatic mode's waiting period."""
+    handle, output = tempfile.mkstemp(suffix=".wav", prefix="pronounce-decoded-")
+    os.close(handle)
+    try:
+        subprocess.run(
+            ["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", path, "-t", "61",
+             "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", output],
+            check=True, capture_output=True, timeout=30,
+        )
+        with wave.open(output, "rb") as decoded:
+            if decoded.getnframes() / decoded.getframerate() > 60:
+                raise scoring.AnalysisError("Choose a recording of 60 seconds or less.")
+        return output
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, wave.Error) as error:
+        os.remove(output)
+        raise scoring.AnalysisError("Could not decode this audio. Try a short WAV, MP3, WebM or M4A recording.") from error
+    except BaseException:
+        os.remove(output)
+        raise

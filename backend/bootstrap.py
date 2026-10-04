@@ -84,15 +84,33 @@ def configure():
         report["missing"].append("espeak-ng")
         report["hints"]["espeak-ng"] = _install_hint("espeak-ng")
 
-    ffmpeg = shutil.which("ffmpeg")
+    ffmpeg = find_ffmpeg()
     if ffmpeg:
         report["ffmpeg"] = ffmpeg
+        os.environ["PATH"] = f"{Path(ffmpeg).parent}{os.pathsep}{os.environ.get('PATH', '')}"
     else:
         report["missing"].append("ffmpeg")
         report["hints"]["ffmpeg"] = _install_hint("ffmpeg")
 
     report["ok"] = not report["missing"]
     return report
+
+
+def find_ffmpeg():
+    """Find an existing winget install even when this terminal has a stale PATH."""
+    configured = os.environ.get("FFMPEG_BINARY")
+    if configured and Path(configured).is_file():
+        return str(Path(configured).resolve())
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    local = os.environ.get("LOCALAPPDATA")
+    if sys.platform == "win32" and local:
+        packages = Path(local) / "Microsoft" / "WinGet" / "Packages"
+        matches = sorted(packages.glob("Gyan.FFmpeg_*/ffmpeg-*/bin/ffmpeg.exe"))
+        if matches:
+            return str(matches[-1])
+    return None
 
 
 def _install_hint(package):

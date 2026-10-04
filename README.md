@@ -13,11 +13,28 @@ The studio supports manual recording and automatic silence stopping, reference
 playback, word feedback, and downloading or retrying the latest take. Cancelling
 analysis releases the browser controls; server inference may still finish.
 
+## Practice and feedback
+
+- Manual capture and automatic stopping after silence; upload existing audio up to
+  60 seconds when a microphone is unavailable.
+- Visible sounds, recognized words and reference-similarity dimensions. See
+  [SCORING.md](SCORING.md) for parameters, tolerance and limitations.
+- A next-step suggestion, slow word playback, focused word practice and return to
+  the full sentence.
+- In-memory history of the last 20 takes with comparisons for matching phrases,
+  voices and scoring weights. Save a JSON report before leaving the practice page.
+- Quiet/clipping hints, bounded decoding, cleanup after failures and audio retry.
+
+Set `ELEVENLABS_API_KEY` in `.env` for the sponsor voice integration. Without a key,
+reference speech uses gTTS and requires internet. The speech recognizers run locally
+once models are downloaded. An existing winget FFmpeg install is discovered even
+when the terminal has an outdated PATH. No key is included in this repository.
+
 ## Checks
 
 - Frontend: `cd frontend`, then `npm ci` and `npm run build`.
-- Recorder lifecycle (Node 24): `node --test frontend/tests/capture.test.mjs` from the repo root.
-- Backend: `python -m unittest discover -s tests` in the configured environment.
+- Recorder lifecycle (Node 24): `node --test frontend/tests/*.test.mjs` from the repo root.
+- Backend: `python -m unittest discover -s tests` in the configured environment (install `httpx` for API tests).
 
 Recorder tests simulate repeated takes, cancellation, device errors and denied or
 late permissions. Before a demo, also record at least ten real takes in the target

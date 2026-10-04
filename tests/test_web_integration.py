@@ -1,7 +1,9 @@
 """API contract tests without model downloads. Run: python -m unittest discover -s tests"""
 import os
 import tempfile
+import subprocess
 import unittest
+import wave
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -9,6 +11,32 @@ from backend import app as web
 
 
 class WebIntegrationTests(unittest.TestCase):
+    def test_decoder_rejects_long_audio_and_removes_partial_file(self):
+        outputs = []
+        def decode(args, **kwargs):
+            self.assertEqual(kwargs['timeout'], 30)
+            self.assertIn('61', args)
+            outputs.append(args[-1])
+            with wave.open(args[-1], 'wb') as audio:
+                audio.setnchannels(1)
+                audio.setsampwidth(2)
+                audio.setframerate(16000)
+                audio.writeframes(b'\x00\x00' * (61 * 16000))
+        with patch.object(web.subprocess, 'run', side_effect=decode):
+            with self.assertRaises(web.scoring.AnalysisError):
+                web._to_wav('input.mp3')
+        self.assertFalse(os.path.exists(outputs[0]))
+
+    def test_decoder_failure_removes_partial_file(self):
+        outputs = []
+        def fail(args, **kwargs):
+            outputs.append(args[-1])
+            raise subprocess.CalledProcessError(1, args)
+        with patch.object(web.subprocess, 'run', side_effect=fail):
+            with self.assertRaises(web.scoring.AnalysisError):
+                web._to_wav('invalid.mp3')
+        self.assertFalse(os.path.exists(outputs[0]))
+
     def setUp(self):
         self.client = TestClient(web.app)
         web._state.update(models="ready", native={"missing": []}, error=None)
