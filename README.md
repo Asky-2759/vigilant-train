@@ -1,5 +1,45 @@
 # vigilant-train
 
+## Integrated browser app (frontend-testing)
+
+Use Python 3.10+ and Node.js 22.12+ (including npm). From the repository root:
+
+```powershell
+.\setup.ps1
+.\run.ps1
+```
+
+For an existing configured Python environment, only `run.ps1` is needed. It
+installs frontend dependencies if missing, builds React, and serves the app and
+API together at http://127.0.0.1:8077. Re-run after frontend changes. The first
+launch downloads/warms the speech models; the page displays readiness.
+
+Put `ELEVENLABS_API_KEY=your-key` in the local `.env` to enable ElevenLabs reference
+speech. Never commit `.env`. Without a key, the backend uses its existing gTTS
+fallback. eSpeak NG and ffmpeg are still required by the backend.
+
+Enter a sentence, listen to its reference, choose manual or automatic recording,
+then record. Automatic mode waits up to 30 seconds for sound and stops after
+three seconds of quiet. Either mode limits speech recording to 30 seconds.
+Automatic recordings retain the initial waiting audio so the browser's encoded
+audio headers remain valid. Use manual mode in noisy rooms.
+
+The browser captures its microphone (not the server's microphone). Uploads are
+converted to 16-kHz mono WAV by the existing backend, analysed with its existing
+OpenPronounce pipeline, and temporary uploads/WAVs are deleted in a finally block.
+The page provides local playback, estimated score, transcription, word-level
+comparisons, and reference playback for individual words. The Windows command
+line recorder below remains available separately.
+
+For frontend development, run the backend and then `npm run dev` inside
+`frontend/`. Vite forwards `/api` to port 8077; edit `vite.config.mjs` if the
+backend uses another port. Browser microphone access requires localhost or HTTPS.
+
+Validation: `npm run build` inside `frontend/`; install `httpx`, then run
+`python -m unittest discover -s tests` from the root after building. API tests
+mock model inference and cover upload handoff, cleanup, and invalid audio;
+they do not verify live microphone capture or model quality.
+
 ## Local microphone recorder (Windows)
 
 The existing browser app uses its own recording and scoring workflow. For a
