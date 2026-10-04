@@ -36,6 +36,7 @@ export default function MainPage() {
   const [backendResponse, setBackendResponse] = useState<string>("");
   const [isCallingBackend, setIsCallingBackend] = useState(false);
 
+  /* ---------- Placeholder ---------- */
   async function callBackend() {
     setIsCallingBackend(true);
     setBackendResponse("");
@@ -61,30 +62,32 @@ export default function MainPage() {
   return (
   <div>
     <h1>Speech Clarity</h1>
-    <p style={{ textAlign: 'center' }}>sample text</p>
+    <p style={{ textAlign: 'center' }}>Press the button to start recording</p>
     <div style={{ display: "flex", justifyContent: "center" }}>
       <button onClick={callBackend} disabled={!speechText.trim() || isCallingBackend}>
         {isCallingBackend ? "Recording..." : "Record"}
       </button>
     </div>
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
-      <label htmlFor="language-select">Select a language</label>
-      <select
-        id="language-select"
-        value={selectedLanguage}
-        onChange={(event) => setSelectedLanguage(event.target.value)}
-      >
-        <option value="" disabled>Select a language</option>
-        {languages.map((language) => (
-          <option key={language.code} value={language.code}>
-            {language.label}
-          </option>
-        ))}
-      </select>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <label htmlFor="language-select">Select a language</label>
+        <select
+          id="language-select"
+          value={selectedLanguage}
+          onChange={(event) => setSelectedLanguage(event.target.value)}
+        >
+          <option value="" disabled>Select a language</option>
+          {languages.map((language) => (
+            <option key={language.code} value={language.code}>
+              {language.label}
+            </option>
+          ))}
+        </select>
+      </div>
       <textarea
         className="speech-input"
         aria-label="Text to say"
-        placeholder="Type what you want to say..."
+        placeholder="Type what you want to say before recording..."
         rows={4}
         value={speechText}
         onChange={(event) => setSpeechText(event.target.value)}
@@ -95,6 +98,27 @@ export default function MainPage() {
           opacity: 0.5;
         }
       `}</style>
+      <section aria-labelledby="evaluation-heading">
+        <h2 id="evaluation-heading">Evaluation</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "2rem" }}>
+          <div>
+            <p><strong>Transcription:</strong> —</p>
+            <p><strong>Transcribed phonemes:</strong> —</p>
+            <p><strong>Mispronounced words:</strong> —</p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p><strong>Overall score</strong></p>
+            <p style={{ fontSize: "2rem", fontWeight: "bold", marginTop: 0 }}>##%</p>
+          </div>
+        </div>
+      </section>
+      <section aria-labelledby="ai-feedback-heading">
+        <h2 id="ai-feedback-heading">AI feedback</h2>
+        <p>TODO: AI feedback goes here</p>
+      </section>
+      <section aria-labelledby="hear-mispronounced-heading">
+        <h2 id="hear-mispronounced-heading">Hear word you mispronounced</h2>
+      </section>
     </div>
     {backendResponse && (
       <pre style={{ textAlign: "center" }}>{backendResponse}</pre>
