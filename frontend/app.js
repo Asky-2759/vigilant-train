@@ -89,11 +89,25 @@ async function fetchAudio(path) {
 
 const player = new Audio();
 
-async function play(url) {
+/* Bumped on every playback request, so a clip that was still downloading when
+   a newer one was asked for (switching voices quickly, double-clicking Hear it)
+   is dropped instead of playing over the newer one. */
+let playbackRequest = 0;
+
+/** Play ``url`` unless a newer playback request has been made since ``request``. */
+async function play(url, request = ++playbackRequest) {
+  if (request !== playbackRequest) return;
   player.pause();
   player.currentTime = 0;
   player.src = url;
-  await player.play();
+  try {
+    await player.play();
+  } catch (e) {
+    // A newer clip replaced this one before it started: the browser rejects the
+    // old play() with AbortError. That is the intended outcome, not a failure.
+    if (e.name === "AbortError") return;
+    throw e;
+  }
 }
 
 /* Boot */
@@ -392,9 +406,13 @@ function ttsUrl(text, { speed = 1, ipa = null } = {}) {
 }
 
 async function speak(text, options = {}) {
+  // Claim the turn before the download starts, so a slow fetch for an old voice
+  // cannot finish after a newer one and play the wrong clip.
+  const request = ++playbackRequest;
   try {
-    await play(await fetchAudio(ttsUrl(text, options)));
+    await play(await fetchAudio(ttsUrl(text, options)), request);
   } catch (e) {
+    if (request !== playbackRequest) return;
     showPracticeError(`Could not speak that: ${e.message}`);
   }
 }
