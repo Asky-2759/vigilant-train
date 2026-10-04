@@ -1,3 +1,4 @@
+import { useRef, type PointerEvent } from 'react';
 import hero from '../assets/hero.png';
 import Brand from '../components/Brand';
 
@@ -11,17 +12,26 @@ const CARDS = [
 ];
 
 export default function Landing({ onStart }: { onStart: () => void }) {
+  const center = useRef<HTMLDivElement>(null);
+  function updateShade(event: PointerEvent<HTMLElement>) {
+    if (event.pointerType !== 'mouse' || !center.current) return;
+    const rect = center.current.getBoundingClientRect();
+    const dx = Math.max(rect.left - event.clientX, 0, event.clientX - rect.right);
+    const dy = Math.max(rect.top - event.clientY, 0, event.clientY - rect.bottom);
+    const proximity = Math.max(0, 1 - Math.hypot(dx, dy) / 160);
+    event.currentTarget.style.setProperty('--proximity', proximity.toFixed(3));
+  }
   return (
     <div className="lp">
       <div className="lp-strip">Supporting UN Sustainable Development Goal 4: Quality Education. <a href="#about">Learn more</a></div>
 
-      <section className="lp-hero">
+      <section className="lp-hero" onPointerMove={updateShade} onPointerLeave={event => event.currentTarget.style.removeProperty('--proximity')}>
         <img src={hero} alt="" />
         <nav className="lp-nav" aria-label="Main">
           <Brand />
           <div className="lp-links"><a href="#products">Products</a><a href="#about">About us</a><a href="#careers">Careers</a></div>
         </nav>
-        <div className="lp-center">
+        <div className="lp-center" ref={center}>
           <h1 className="lp-title">Explore {APP_NAME}</h1>
           <p className="lp-sub">Find the sounds you want to practise next.</p>
           <div className="row" style={{ justifyContent: 'center' }}>
