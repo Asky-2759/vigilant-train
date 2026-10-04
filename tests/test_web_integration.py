@@ -27,10 +27,59 @@ class WebIntegrationTests(unittest.TestCase):
             paths.append(path)
             return path
         payload = {"score": 80, "transcribe": "hello", "heard_ipa": "h", "words": []}
-        with patch.object(web, "_to_wav", side_effect=convert), patch.object(web.scoring, "analyze", return_value=payload):
+        with patch.object(web, "_to_wav", side_effect=convert), patch.object(
+            web.scoring, "analyze", return_value=payload
+        ) as analyze:
             response = self.client.post("/api/analyze", data={"expected_text": "hello"}, files={"file": ("take.webm", b"audio", "audio/webm")})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), payload)
+        analyze.assert_called_once_with(paths[1], "hello", None)
+        self.assertTrue(all(not os.path.exists(path) for path in paths))
+
+    def test_webm_conversion_returns_wav_and_cleans_temp_files(self):
+        paths = []
+
+        def convert(source):
+            self.assertTrue(os.path.exists(source))
+            paths.append(source)
+            fd, wav_path = tempfile.mkstemp(suffix=".wav")
+            with os.fdopen(fd, "wb") as wav:
+                wav.write(b"RIFF test wav")
+            paths.append(wav_path)
+            return wav_path
+
+        with patch.object(web, "_to_wav", side_effect=convert):
+            response = self.client.post(
+                "/api/convert",
+                files={"file": ("take.webm", b"webm audio", "audio/webm")},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "audio/wav")
+        self.assertEqual(response.content, b"RIFF test wav")
+        self.assertTrue(all(not os.path.exists(path) for path in paths))
+
+    def test_webm_conversion_rejects_empty_upload(self):
+        response = self.client.post(
+            "/api/convert",
+            files={"file": ("take.webm", b"", "audio/webm")},
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_webm_conversion_failure_cleans_upload(self):
+        paths = []
+
+        def fail(source):
+            paths.append(source)
+            raise ValueError("invalid WebM audio")
+
+        with patch.object(web, "_to_wav", side_effect=fail):
+            response = self.client.post(
+                "/api/convert",
+                files={"file": ("take.webm", b"invalid audio", "audio/webm")},
+            )
+
+        self.assertEqual(response.status_code, 500)
         self.assertTrue(all(not os.path.exists(path) for path in paths))
 
     def test_analysis_failure_also_cleans_upload(self):

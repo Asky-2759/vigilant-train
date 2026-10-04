@@ -27,6 +27,9 @@ audio headers remain valid. Use manual mode in noisy rooms.
 The browser captures its microphone (not the server's microphone). Uploads are
 converted to 16-kHz mono WAV by the existing backend, analysed with its existing
 OpenPronounce pipeline, and temporary uploads/WAVs are deleted in a finally block.
+The standalone `POST /api/convert` endpoint accepts a multipart `file` upload
+(such as the browser's WebM recording) and returns the converted WAV as
+`audio/wav`; temporary files are removed after the response is sent.
 The page provides local playback, estimated score, transcription, word-level
 comparisons, and reference playback for individual words. The Windows command
 line recorder below remains available separately.
