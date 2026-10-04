@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 class CoachRequest(BaseModel):
     style: Literal['british', 'american', 'russian'] = 'british'
     playful: bool = True
+    intent: Literal['feedback', 'simpler'] = 'feedback'
+    take: int = Field(default=0, ge=0, le=10000)
     guidance: str = Field(default='', max_length=600)
     warning: str = Field(default='', max_length=300)
     focus: str = Field(default='', max_length=100)
@@ -14,28 +16,35 @@ class CoachRequest(BaseModel):
 
 def clean(value):
     # User phrases must not introduce voice direction tags or SSML.
+    value = re.sub(r'/[^/\n]+/', 'the target sound', value)
+    value = re.sub(r'[\u0250-\u02ff\u1d00-\u1d7f]', '', value)
     return re.sub(r'\s+', ' ', re.sub(r'[\[\]<>]', '', value)).strip()
 
 
 def script(request):
     openers = {
-        'british': "All right, mate! Tongue doing a little gymnastics? We've got this.",
-        'american': "Hey, you've got this! A tongue twister is just a tiny workout without the gym fee.",
-        'russian': "Ready for another round? Your tongue is warming up, not applying for the Olympics.",
+        'british': ["Right then, mate — let's give this a go!", "All right! Tiny tongue workout. No gym membership required.", "Back for another go? That's the spirit!"],
+        'american': ["Hey! Let's make this one a little easier.", "Okay, tiny tongue workout — zero push-ups required!", "Another round? I like your energy!"],
+        'russian': ["All right, let's work on this together!", "A little tongue gymnastics. No medals needed!", "One more round. Small steps count!"],
     }
-    opener = openers[request.style] if request.playful else "Let's take this one step at a time."
+    opener = openers[request.style][request.take % 3] if request.playful else "Let's work on one thing together."
+    focus = clean(request.focus)
     if request.warning:
-        advice = 'Before we judge the sounds, ' + clean(request.warning)
+        advice = 'First, let us get a clearer recording. ' + clean(request.warning)
+    elif request.intent == 'simpler':
+        advice = (f'Just one word for now: {focus}. ' if focus else '') + 'Listen once. Say it slowly. Then try the whole phrase. No rush.'
     elif request.guidance:
-        advice = clean(request.guidance)
-    elif request.focus:
-        advice = f"Let's revisit {clean(request.focus)}. Listen to the reference, say it slowly, then put it back in the sentence."
+        advice = (f'Our focus is the word {focus}. ' if focus else '') + clean(request.guidance)
+    elif focus:
+        advice = f'Let us try {focus}. Listen to the example, say it slowly, then put it back into the sentence.'
     else:
-        advice = 'Listen to the reference once, then record a phrase at your own pace.'
-    ending = "One useful next step beats chasing a perfect score. You've got another take in you!"
+        advice = 'Choose a phrase and give it a try. I will help you pick one thing to practise after your recording.'
+    ending = 'Ready? Your turn.'
     transcript = f'{opener} {advice} {ending}'
-    accent = {'british': 'British', 'american': 'American', 'russian': 'Russian'}[request.style]
-    spoken = f'[strong {accent} accent] [warmly] {opener} [encouraging] {advice} {ending}'
+    accent = '[strong Russian accent] ' if request.style == 'russian' else ''
+    reaction = '[chuckles] ' if request.playful and request.take % 3 == 1 else ''
+    spoken = f'{accent}[excited] {opener} {reaction} [warmly] {advice} ... [encouraging] {ending}'
+
     return transcript, spoken
 
 

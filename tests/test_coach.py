@@ -39,3 +39,24 @@ class CoachTests(unittest.TestCase):
         client = TestClient(web.app)
         for payload in ({'style':'invalid'}, {'guidance':'x'*601}):
             self.assertEqual(client.post('/api/coach',json=payload).status_code,422)
+
+    def test_spoken_feedback_removes_ipa(self):
+        text, spoken = script(CoachRequest(focus='three', guidance='Compare /θriː/ with the recording.'))
+        self.assertIn('word three', text)
+        self.assertNotIn('θri', spoken)
+
+    def test_simpler_uses_selected_word(self):
+        text, _ = script(CoachRequest(focus='trees', intent='simpler', playful=False))
+        self.assertIn('trees', text)
+        self.assertIn('Listen once. Say it slowly.', text)
+
+    def test_word_reference_ignores_phoneme_override(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            audio = Path(directory) / 'word.wav'
+            audio.write_bytes(b'RIFFtest')
+            with patch.object(web.scoring, 'fallback_wav', return_value=str(audio)) as synth:
+                response = TestClient(web.app).get('/api/tts', params={'text':'three', 'word':'true', 'ipa':'bad phones', 'speed':0.7})
+            self.assertEqual(response.status_code, 200)
+            synth.assert_called_once_with('three', 0.7)

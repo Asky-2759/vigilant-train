@@ -75,9 +75,9 @@ textarea,select { width:100%; padding:12px 14px; border:1px solid var(--line); b
 @media (max-width:820px) { .lp-nav { padding:18px 20px; } .lp-links { gap:18px; font-size:14px; } .lp-cards { padding:16px 20px 0; grid-template-columns:1fr; } .lp-card.a,.lp-card.b { grid-column:auto; min-height:320px; } .lp-about { padding:72px 20px; } .lp-foot { padding:24px 20px 40px; } }
 /* Practice studio: uses the landing page's midnight and sky-blue palette. */
 .brand { display:inline-flex; align-items:center; }
-.brand-image { display:block; width:156px; height:72px; background:#fff; border-radius:12px; overflow:hidden; }
-.brand-image img { width:100%; height:100%; object-fit:cover; position:static; }
-.lp-hero .brand-image img { position:static; width:100%; height:100%; z-index:auto; object-fit:cover; }
+.brand-image { display:block; width:156px; height:72px; background:transparent; overflow:visible; }
+.brand-image img { width:100%; height:100%; object-fit:contain; position:static; }
+.lp-hero .brand-image img { position:static; width:100%; height:100%; z-index:auto; object-fit:contain; }
 .brand-button { background:none; border:0; padding:0; cursor:pointer; }
 .brand-button:disabled { cursor:default; }
 .studio { max-width:1320px; }

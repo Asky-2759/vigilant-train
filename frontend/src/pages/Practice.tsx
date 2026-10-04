@@ -30,6 +30,8 @@ export default function Practice({ onBack }: { onBack: () => void }) {
  const [playing, setPlaying] = useState(false);
  const [coachStyle, setCoachStyle] = useState('british');
  const [playful, setPlayful] = useState(true);
+ const [autoCoach, setAutoCoach] = useState(true);
+ const [coachClip, setCoachClip] = useState('');
  const [coachText, setCoachText] = useState('');
  const [coachError, setCoachError] = useState('');
  const [coachLoading, setCoachLoading] = useState(false);
@@ -87,10 +89,10 @@ export default function Practice({ onBack }: { onBack: () => void }) {
    }, 500);
    return () => { clearTimeout(timer); controller.abort(); };
  }, [text, ready, maxChars]);
- function changeText(value: string) { setCoachText(''); setCoachError(''); setCurrentAttempt(null); setText(value); setResult(null); lastTake.current = null; setClip(''); setError(''); }
- function speak(value: string, speed = 1) {
+ function changeText(value: string) { setCoachClip(''); setCoachText(''); setCoachError(''); setCurrentAttempt(null); setText(value); setResult(null); lastTake.current = null; setClip(''); setError(''); }
+ function speak(value: string, speed = 1, wholeWord = false) {
    stopVoice(); replay.current?.pause(); setError(''); setPlaying(true);
-   const params = new URLSearchParams({text: value, speed: String(speed)}); if (voiceId) params.set('voice_id', voiceId);
+   const params = new URLSearchParams({text: value, speed: String(speed)}); if (wholeWord) params.set('word', 'true'); if (voiceId) params.set('voice_id', voiceId);
    const audio = new Audio(`/api/tts?${params}`); voice.current = audio;
    const timer = voiceTimer.current = setTimeout(() => { if (voice.current === audio) { stopVoice(); setError('Reference audio took too long. Please retry.'); } }, 30000);
    const finish = () => { clearTimeout(timer); if (voice.current === audio) setPlaying(false); };
@@ -99,23 +101,28 @@ export default function Practice({ onBack }: { onBack: () => void }) {
    audio.onerror = () => { finish(); if (voice.current === audio) setError('Reference voice unavailable. You can still record.'); };
    void audio.play().catch(() => { finish(); if (voice.current === audio) setError('Could not play the reference. Please retry.'); });
  }
- async function hearCoach() {
-   stopVoice(); replay.current?.pause(); setCoachError(''); setCoachLoading(true); setPlaying(true);
+ function playCoachClip(source: string) {
+   stopVoice(); replay.current?.pause(); setCoachError(''); setPlaying(true);
+   const audio = new Audio(source); voice.current = audio;
+   const finish = () => { if (voice.current === audio) setPlaying(false); };
+   audio.onended = finish;
+   audio.onerror = () => { finish(); if (voice.current === audio) setCoachError('Audio could not play. Try replaying your coach.'); };
+   void audio.play().catch(() => { finish(); if (voice.current === audio) setCoachError('Your browser paused automatic audio. Tap Replay coach to listen.'); });
+ }
+ async function hearCoach(feedback: Result | null = result, focusIndex = selected, intent = 'feedback', takeNumber = history.length) {
+   stopVoice(); replay.current?.pause(); setCoachError(''); setCoachText(''); setCoachClip(''); setCoachLoading(true); setPlaying(true);
    const controller = new AbortController(); coachAbort.current = controller;
    const timer = setTimeout(() => controller.abort(), 75000);
    try {
      const response = await fetch('/api/coach', {method: 'POST', headers: {'Content-Type': 'application/json'}, signal: controller.signal,
-       body: JSON.stringify({style: coachStyle, playful, guidance: result?.guidance?.message || '', warning: result?.recording_quality?.warnings[0] || '', focus: word?.word || ''})});
+       body: JSON.stringify({style: coachStyle, playful, intent, take: takeNumber, guidance: feedback?.guidance?.message || '', warning: feedback?.recording_quality?.warnings[0] || '', focus: feedback?.guidance?.position != null || intent === 'simpler' ? feedback?.words[focusIndex]?.word || '' : ''})});
      if (!response.ok) throw new Error('The coach could not prepare that feedback. Please retry.');
      const payload = await response.json();
      if (!alive.current || controller.signal.aborted) return;
      setCoachText(payload.transcript); setCoachError(payload.error || '');
      if (!payload.audio) { setPlaying(false); return; }
-     const audio = new Audio(`data:${payload.content_type};base64,${payload.audio}`); voice.current = audio;
-     const finish = () => { if (voice.current === audio) setPlaying(false); };
-     audio.onended = finish;
-     audio.onerror = () => { finish(); setCoachError('Audio could not play. Your coaching is written below.'); };
-     await audio.play().catch(() => { finish(); setCoachError('Playback was blocked. Try Hear my coach again.'); });
+     const source = `data:${payload.content_type};base64,${payload.audio}`;
+     setCoachClip(source); playCoachClip(source);
    } catch (e) {
      if (alive.current && coachAbort.current === controller) {
        setPlaying(false);
@@ -125,7 +132,7 @@ export default function Practice({ onBack }: { onBack: () => void }) {
    } finally { clearTimeout(timer); if (coachAbort.current === controller) { coachAbort.current = null; if (alive.current) setCoachLoading(false); } }
  }
  async function analyze(take: Take) {
-   setPhase('analyzing'); setError(''); setCoachText(''); setCoachError('');
+   setPhase('analyzing'); setError(''); setCoachClip(''); setCoachText(''); setCoachError('');
    const controller = new AbortController(); analysisAbort.current = controller;
    let timedOut = false;
    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 180000);
@@ -139,6 +146,7 @@ export default function Practice({ onBack }: { onBack: () => void }) {
        setSelected(focus >= 0 ? focus : 0);
        const attempt: Attempt = { id: take.id, text: take.text, voiceId: take.voiceId, score: payload.score, hasReference: payload.has_reference, dimensions: payload.breakdown, flagged: payload.words.filter((w: Word) => w.status !== 'ok').map((w: Word) => w.word), createdAt: new Date().toISOString() };
        setHistory(items => addAttempt(items, attempt)); setCurrentAttempt(attempt);
+       if (autoCoach) void hearCoach(payload, focus >= 0 ? focus : 0, 'feedback', history.length + 1);
      }
    } catch (e) { if (alive.current) setError(timedOut ? 'Analysis timed out. Your recording is saved below. The server may still be finishing; wait before retrying.' : controller.signal.aborted ? 'Analysis cancelled. Your recording is still available.' : e instanceof Error ? e.message : 'Analysis failed.'); }
    finally { clearTimeout(timer); analysisAbort.current = null; locked.current = false; if (alive.current) setPhase('idle'); }
@@ -209,11 +217,12 @@ export default function Practice({ onBack }: { onBack: () => void }) {
        {error && <p role="alert" className="error error-box">{error}</p>}
      </section>
      <section className="panel results" aria-labelledby="results-title"><div className="section-heading"><span className="step-number">03</span><div><p className="eyebrow">LISTEN. NOTICE. REPEAT.</p><h2 id="results-title">Your feedback</h2></div></div>
-       <div className="coach-card">
+       <div className={`coach-card ${playing ? 'coach-active' : ''}`}>
          <div className="row"><div><p className="eyebrow">IN YOUR CORNER</p><h3>Your voice coach</h3></div><span className="coach-badge"><Icon name="spark" /> ElevenLabs</span></div>
-         <p>A little encouragement. One useful next step.</p>
-         <div className="coach-controls"><label className="field">Coach voice style<select value={coachStyle} disabled={busy || playing} onChange={e => { setCoachStyle(e.target.value); setCoachText(''); setCoachError(''); }}><option value="british">British · All right, mate</option><option value="american">American · You've got this</option><option value="russian">Russian-accented English</option></select></label><label className="coach-toggle"><input type="checkbox" checked={playful} disabled={busy || playing} onChange={e => { setPlayful(e.target.checked); setCoachText(''); }} /> A little humour</label></div>
-         <div className="reference-row"><button className="btn" disabled={busy || playing} onClick={() => void hearCoach()}><Icon name="play" />{coachLoading ? 'Preparing your coach…' : 'Hear my coach'}</button>{playing && <button className="linkish" onClick={stopVoice}>Stop audio</button>}</div>
+         <p>Record. Get a little encouragement. Try the next step.</p>
+         <div className="coach-controls"><label className="field">Coach voice style<select value={coachStyle} disabled={busy || playing} onChange={e => { setCoachStyle(e.target.value); setCoachText(''); setCoachError(''); }}><option value="british">British · All right, mate</option><option value="american">American · You've got this</option><option value="russian">Russian-accented English</option></select></label><label className="coach-toggle"><input type="checkbox" checked={playful} disabled={busy || playing} onChange={e => { setPlayful(e.target.checked); setCoachText(''); }} /> A little humour</label><label className="coach-toggle"><input type="checkbox" checked={autoCoach} disabled={busy} onChange={e => { setAutoCoach(e.target.checked); if (!e.target.checked) stopVoice(); }} /> Speak after each take</label></div>
+         <div className="reference-row"><button className="btn" disabled={busy || playing} onClick={() => void hearCoach()}><Icon name="play" />{coachLoading ? 'Coach is thinking…' : 'Hear my coach'}</button>{playing && <button className="linkish" onClick={stopVoice}>Stop audio</button>}</div>
+         <div className="reference-row">{coachClip && <button className="btn" disabled={busy || playing} onClick={() => playCoachClip(coachClip)}>Replay coach</button>}{result && <button className="btn" disabled={busy || playing} onClick={() => void hearCoach(result, selected, 'simpler')}>Make it simpler</button>}{word && <button className="btn" disabled={busy || playing} onClick={() => speak(word.word, 0.7, true)}>Hear “{word.word}”</button>}</div>
          {coachText && <p className="coach-transcript" aria-live="polite">{coachText}</p>}
          {coachError && <p role="status" className="hint">{coachError}</p>}
          <p className="hint">Expressive English coaching; accent delivery can vary. Your pronunciation reference stays American. Feedback follows your latest take.</p>
@@ -223,7 +232,7 @@ export default function Practice({ onBack }: { onBack: () => void }) {
          {result.guidance && <div className="next-step"><span className="eyebrow">YOUR NEXT STEP</span><h3>{result.guidance.title}</h3><p>{result.guidance.message}</p>{result.guidance.position !== null && <button className="linkish" onClick={() => setSelected(result.words.findIndex(w => w.position === result.guidance!.position))}>Show this word</button>}</div>}
          {previous && currentAttempt && <p className="progress-note">{Math.round(currentAttempt.score - previous.score) > 0 ? '+' : ''}{Math.round(currentAttempt.score - previous.score)} points compared with your previous comparable take. Small changes may be model variation.</p>}
          <div className="word-picker" aria-label="Word feedback">{result.words.map((w, index) => <button key={w.position} className={`word-pill ${w.status !== 'ok' ? 'flagged' : ''} ${selected === index ? 'selected' : ''}`} aria-pressed={selected === index} onClick={() => setSelected(index)}>{w.word}{w.status !== 'ok' && <span aria-label="possible difference"> ·</span>}</button>)}</div>
-         {word && <div className="word-detail"><div className="row"><h3>{word.word}</h3><span className="detail-label">{word.status === 'ok' ? 'No difference flagged' : 'Possible sound difference'}</span></div><div className="sound-pair"><div><span>Reference</span><p>/{word.expected}/</p></div><div><span>Detected</span><p>/{word.heard || '—'}/</p></div></div><button className="btn" disabled={playing || busy} onClick={() => speak(word.word)}><Icon name="play" /> Hear this word</button><div className="reference-row"><button className="btn" disabled={playing || busy} onClick={() => speak(word.word, 0.7)}>Hear slowly</button><button className="btn" disabled={playing || busy} onClick={() => practiseWord(word.word)}>Practise this word</button></div><p className="hint">Listen once, repeat the word, then practise it in the full sentence. A flagged sound is a suggestion to review, not proof of a mistake.</p>{word.phones.length > 0 && <ul className="phone-differences">{word.phones.filter(phone => phone.confidence > 0).map((phone, index) => <li key={index}><span>Reference <strong>/{phone.expected || '—'}/</strong></span><span>Detected <strong>/{phone.heard || '—'}/</strong></span></li>)}</ul>}</div>}
+         {word && <div className="word-detail"><div className="row"><h3>{word.word}</h3><span className="detail-label">{word.status === 'ok' ? 'No difference flagged' : 'Possible sound difference'}</span></div><div className="sound-pair"><div><span>Reference</span><p>/{word.expected}/</p></div><div><span>Detected</span><p>/{word.heard || '—'}/</p></div></div><button className="btn" disabled={playing || busy} onClick={() => speak(word.word, 1, true)}><Icon name="play" /> Hear this word</button><div className="reference-row"><button className="btn" disabled={playing || busy} onClick={() => speak(word.word, 0.7, true)}>Hear slowly</button><button className="btn" disabled={playing || busy} onClick={() => practiseWord(word.word)}>Practise this word</button></div><p className="hint">The clear word example reads the spelling, not the IPA symbols. Listen once, repeat the word, then practise it in the full sentence. A flagged sound is a suggestion to review, not proof of a mistake.</p>{word.phones.length > 0 && <ul className="phone-differences">{word.phones.filter(phone => phone.confidence > 0).map((phone, index) => <li key={index}><span>Reference <strong>/{phone.expected || '—'}/</strong></span><span>Detected <strong>/{phone.heard || '—'}/</strong></span></li>)}</ul>}</div>}
          <div className="dimension-grid">{result.breakdown.map(t => <article className="dimension" key={t.key}><div><strong>{t.label}</strong><span>{Math.round(t.value)}<small>/100</small></span></div><div className="dimension-track" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={t.value} aria-label={t.label}><span style={{width: `${t.value}%`}} /></div><details><summary>What this measures</summary><p>{t.hint}</p></details><small>{Math.round(t.weight * 100)}% of the combined estimate</small></article>)}</div>
          <details className="sound-details"><summary>How the comparison works</summary><p>The combined estimate is a weighted average of these dimensions. Without reference audio, sounds and words are reweighted. These are model estimates, not a certified proficiency assessment. Compare takes using the same phrase and reference voice.</p><p>Sound comparison: {result.sound_comparison === 'variant-aware' ? 'accepted variants and similar sounds receive tolerance; missing words still count.' : 'strict sequence comparison was used for this take.'} Pitch, accent identity and speaking speed are not separate grades. A more detailed display does not make recognition more certain.</p></details>
          {result.recording_quality && <div className="quality-note"><strong>{result.recording_quality.label}</strong><span> · {result.recording_quality.duration_seconds}s</span>{result.recording_quality.warnings.map(warning => <p key={warning}>{warning}</p>)}<p>{result.recording_quality.note}</p></div>}

@@ -155,7 +155,7 @@ class ElevenLabs:
     # -- Synthesis ----------------------------------------------------------
 
     def synthesize(self, text, *, lang=None, voice_id=None, model_id=None, speed=1.0,
-                   output_format=MP3_FORMAT, ipa=None):
+                   output_format=MP3_FORMAT, ipa=None, stability=None):
         """Synthesize ``text`` and return ``(audio_bytes, content_type, cache_path)``.
 
         ``ipa`` speaks a literal phone sequence through a ``<phoneme>`` tag instead
@@ -167,7 +167,8 @@ class ElevenLabs:
         speed = min(SPEED_RANGE[1], max(SPEED_RANGE[0], float(speed)))
         spoken = f'<phoneme alphabet="ipa" ph="{_escape(ipa)}">{_escape(text)}</phoneme>' if ipa else text
 
-        path = self._cache_path(spoken, voice_id, model_id, speed, output_format)
+        effective_stability = self.settings.stability if stability is None else stability
+        path = self._cache_path(spoken + f"|stability={effective_stability}", voice_id, model_id, speed, output_format)
         if path.exists():
             return path.read_bytes(), _content_type(output_format), path
 
@@ -175,7 +176,7 @@ class ElevenLabs:
             "text": spoken,
             "model_id": model_id,
             "voice_settings": {
-                "stability": self.settings.stability,
+                "stability": effective_stability,
                 "similarity_boost": self.settings.similarity_boost,
             },
         }

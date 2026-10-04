@@ -160,7 +160,7 @@ def coach(request: CoachRequest):
     if _client is None:
         return {**response, "error": "Voice coaching needs an ElevenLabs key on the server. Your written coaching is ready."}
     try:
-        payload, content_type, _ = _client.synthesize(spoken, model_id="eleven_v3", voice_id=choose_voice(_client, request.style))
+        payload, content_type, _ = _client.synthesize(spoken, model_id="eleven_v3", voice_id=choose_voice(_client, request.style), stability=0.0)
         return {**response, "audio": base64.b64encode(payload).decode('ascii'), "content_type": content_type}
     except elevenlabs_module.ElevenLabsError as error:
         message = "The coach voice is unavailable right now. Check ElevenLabs credits and access to Eleven v3, or retry. Your written coaching is ready."
@@ -181,7 +181,7 @@ def phonemes(text: str = Form(...)):
 
 @app.get("/api/tts")
 def tts(text: str = Query(...), speed: float = Query(1.0),
-        voice_id: str = Query(None), ipa: str = Query(None)):
+        voice_id: str = Query(None), ipa: str = Query(None), word: bool = Query(False)):
     """Speak ``text`` -- the model pronunciation the learner is aiming at.
 
     ``speed`` below 1 slows the delivery without dropping the pitch, which is what
@@ -189,11 +189,22 @@ def tts(text: str = Query(...), speed: float = Query(1.0),
     of the spelling, for the odd word the voice reads wrong.
     """
     text = _check_text(text)
+    # Word demonstrations always read spelling, never recognized IPA or emotion tags.
+    if word:
+        from .coach import clean
+        text = clean(text).strip(" .,!?:;\"'“”")
+        if not text or len(text.split()) > 4:
+            raise HTTPException(status_code=422, detail="Choose a written word to hear.")
+        try:
+            return FileResponse(scoring.fallback_wav(text, speed), media_type="audio/wav",
+                                headers={"X-Pronounce-Voice": "clear-word-reference"})
+        except Exception:
+            raise HTTPException(status_code=502, detail="Word reference unavailable. Please retry.")
 
     if _client is not None:
         try:
             payload, content_type, _ = _client.synthesize(
-                text, lang=scoring.LANG, speed=speed, voice_id=voice_id or None, ipa=ipa or None
+                text, lang=scoring.LANG, speed=speed, voice_id=voice_id or None
             )
             return Response(content=payload, media_type=content_type,
                             headers={"Cache-Control": "public, max-age=86400"})

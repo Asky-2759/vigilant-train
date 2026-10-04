@@ -94,5 +94,6 @@ can vary, and the American pronunciation scoring reference stays separate.
 
 Set `ELEVENLABS_API_KEY` in your local, ignored `.env` to the actual API key shown
 when ElevenLabs creates it, not the key ID. Restart the Python server after
-changing it. The key stays on the server. Speech is requested only on button
-press and cached; if the provider fails, written coaching remains available.
+changing it. The key stays on the server. Coaching speaks automatically after each take by default (with an off toggle), and can be replayed without generating again. Speech is cached; if the provider fails, written coaching remains available.
+
+The coach offers **Make it simpler** and a selected-word demonstration. Word playback uses plain spelling, never displayed IPA. Browser autoplay restrictions may require a tap on **Replay coach**. Creative delivery is used only for coaching.

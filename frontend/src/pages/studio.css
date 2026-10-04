@@ -13,7 +13,7 @@
 .studio-shell { --ink:#182b49; --muted:#526681; --line:#dbe4ef; --accent:#245ddd; --bg:#f3f6fb; color:var(--ink); min-height:100vh; background:radial-gradient(ellipse at 92% 8%,#dce9ff 0,transparent 38%),radial-gradient(ellipse at 0 55%,#def3ed 0,transparent 40%),#f3f6fb; }
 .studio-shell .studio { max-width:1400px; padding:0 40px 20px; }
 .studio-shell .bar { padding:18px 0; border-color:#d5dfed; }
-.studio-shell .brand-image { width:140px; height:64px; border:1px solid #e2e8f1; box-shadow:0 4px 14px #17345e08; }
+.studio-shell .brand-image { width:140px; height:64px; border:0; box-shadow:none; }
 .studio-shell .status { font-size:12px; border:1px solid #ccdce9; background:#ffffffb3; border-radius:24px; padding:9px 15px; }
 .studio-shell .status.ready { color:#246954; background:#e9f7f0; border-color:#c4e4d7; }
 .studio-shell .btn { color:#24415e; border-color:#cad8e8; background:#fff; font-weight:550; font-size:13px; transition:background .18s,box-shadow .18s,transform .18s; }
@@ -110,3 +110,6 @@
 .studio .coach-toggle { display: flex; gap: 8px; align-items: center; font-size: .85rem; }
 .studio .coach-toggle input { accent-color: #177864; width: 17px; height: 17px; }
 .studio .coach-transcript { padding: 16px; background: #ffffffbf; border-radius: 12px; border-left: 3px solid #21866d; }
+
+.studio .coach-active { border-color:#39a68d; box-shadow:0 0 0 4px #39a68d12; }
+.studio .coach-card .reference-row { margin-top:12px; }
