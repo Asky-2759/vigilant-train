@@ -195,13 +195,21 @@ if (-not (Test-Path (Join-Path $root '.env'))) {
 
 if (-not $SkipModels) {
     Write-Step 'Speech models (~2.4 GB, downloaded once from Hugging Face)'
-    & $venvPython -c @'
-from backend import scoring, settings
-scoring.init(settings.load())
-scoring.warm("en")
-print("models ready")
-'@
-    if ($LASTEXITCODE -ne 0) { throw 'model download failed' }
+    # Run from a file, not `python -c`: Windows PowerShell 5.1 strips the double
+    # quotes out of arguments it hands to native programs, mangling inline code.
+    $warmScript = Join-Path $env:TEMP 'pronounce-warm-models.py'
+    Set-Content -Path $warmScript -Encoding ASCII -Value @(
+        'import os, sys'
+        'sys.path.insert(0, os.getcwd())'
+        'from backend import scoring, settings'
+        'scoring.init(settings.load())'
+        'scoring.warm()'
+        "print('models ready')"
+    )
+    & $venvPython $warmScript
+    $warmExit = $LASTEXITCODE
+    Remove-Item $warmScript -ErrorAction SilentlyContinue
+    if ($warmExit -ne 0) { throw 'model download failed' }
     Write-Ok 'models cached'
 } else {
     Write-Warn2 'Skipped the model download - the first recording will wait for it'
