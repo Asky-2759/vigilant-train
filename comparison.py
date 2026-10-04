@@ -15,7 +15,11 @@ def feature_table():
     import panphon
     return panphon.FeatureTable()
 
-
+IPA_ALIASES = {
+    "ɚ": "əɹ",
+    "ɝ": "ɜɹ",
+    "ᵻ": "ɪ",
+}
 def segment_ipa(value):
     """Apply the same segmentation to both streams; reject unknown symbols.
 
@@ -29,6 +33,8 @@ def segment_ipa(value):
     if not isinstance(value, str):
         raise TypeError("Expected an IPA string or list of IPA strings.")
     value = unicodedata.normalize("NFD", value)
+    for old, new in IPA_ALIASES.items():
+        value = value.replace(old, new)
     clean = "".join(c for c in value if not c.isspace() and c not in "ˈˌ")
     segments = feature_table().ipa_segs(clean)
     if "".join(segments) != clean:

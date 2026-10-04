@@ -1,5 +1,28 @@
-# vigilant-train
+# Speech Clarity
 
+A pronunciation practice app with a browser recorder, ElevenLabs reference audio,
+and OpenPronounce feedback. The landing page and practice studio now live on main.
+
+## Run the app (Windows)
+
+Install Node.js and Python, then run `./setup.ps1` once and `./run.ps1` to build
+and serve the app at http://localhost:8077. Configure the ElevenLabs credentials
+in your local `.env` using `.env.example`. Never commit your keys.
+
+The studio supports manual recording and automatic silence stopping, reference
+playback, word feedback, and downloading or retrying the latest take. Cancelling
+analysis releases the browser controls; server inference may still finish.
+
+## Checks
+
+- Frontend: `cd frontend`, then `npm ci` and `npm run build`.
+- Recorder lifecycle (Node 24): `node --test frontend/tests/capture.test.mjs` from the repo root.
+- Backend: `python -m unittest discover -s tests` in the configured environment.
+
+Recorder tests simulate repeated takes, cancellation, device errors and denied or
+late permissions. Before a demo, also record at least ten real takes in the target
+browser: mocked tests cannot verify microphone drivers or actual model accuracy.
+Pronunciation scores are estimates and may flag valid accent differences.
 ## Local microphone recorder (Windows)
 
 The existing browser app uses its own recording and scoring workflow. For a
