@@ -1,8 +1,3 @@
-import librosa
-import soundfile as sf
-import noisereduce as nr
-import numpy as np
-from scipy.signal import butter, lfilter
 
 def sharpen_audio_file(input_path, output_path=None, target_sr=16000):
     """
@@ -15,6 +10,12 @@ def sharpen_audio_file(input_path, output_path=None, target_sr=16000):
         output_path = input_path
         
     try:
+        # Enhancement is optional; a missing dependency must not prevent app startup.
+        import librosa
+        import soundfile as sf
+        import noisereduce as nr
+        import numpy as np
+        from scipy.signal import butter, lfilter
         # 1. Load audio and resample to target sample rate (default 16 kHz mono)
         audio, sr = librosa.load(input_path, sr=target_sr, mono=True)
         
