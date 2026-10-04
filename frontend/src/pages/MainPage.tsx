@@ -64,7 +64,6 @@ export default function MainPage() {
   <div>
     <h1>Speech Clarity</h1>
 
-    // Record button
     <p style={{ textAlign: 'center' }}>Press the button to start recording</p>
     <div style={{ display: "flex", justifyContent: "center" }}>
       <button
@@ -80,7 +79,6 @@ export default function MainPage() {
       </button>
     </div>
 
-    // Language selection and speech input
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
         <label htmlFor="language-select">Select a language</label>

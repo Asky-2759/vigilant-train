@@ -31,9 +31,11 @@ The page provides local playback, estimated score, transcription, word-level
 comparisons, and reference playback for individual words. The Windows command
 line recorder below remains available separately.
 
-For frontend development, run the backend and then `npm run dev` inside
-`frontend/`. Vite forwards `/api` to port 8077; edit `vite.config.mjs` if the
-backend uses another port. Browser microphone access requires localhost or HTTPS.
+For frontend development, run `npm run dev` inside `frontend/`. It starts the
+Python API before Vite, or reuses an API already listening on the configured
+port. The Vite proxy uses `PRONOUNCE_PORT` from the environment or root `.env`
+(default 8077).
+Browser microphone access requires localhost or HTTPS.
 
 Validation: `npm run build` inside `frontend/`; install `httpx`, then run
 `python -m unittest discover -s tests` from the root after building. API tests

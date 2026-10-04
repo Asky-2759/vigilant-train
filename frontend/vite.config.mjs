@@ -1,2 +1,11 @@
 import { defineConfig } from 'vite';
-export default defineConfig({ server: { proxy: { '/api': 'http://127.0.0.1:8077' } } });
+
+const backendPort = process.env.PRONOUNCE_PORT || '8077';
+
+export default defineConfig({
+  server: {
+    proxy: {
+      '/api': `http://127.0.0.1:${backendPort}`,
+    },
+  },
+});
