@@ -27,6 +27,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import elevenlabs as elevenlabs_module
 from . import scoring, settings as settings_module
+from .audio_processer import sharpen_audio_file
 
 logging.basicConfig(level=os.environ.get("PRONOUNCE_LOG_LEVEL", "INFO"),
                     format="%(asctime)s %(levelname)-7s %(name)s  %(message)s")
@@ -220,6 +221,7 @@ def analyze(file: UploadFile = File(...), expected_text: str = Form(...), voice_
     try:
         upload_path = _save_upload(file)
         wav_path = _to_wav(upload_path)
+        sharpen_audio_file(wav_path)
         return scoring.analyze(wav_path, expected_text, voice_id or None)
     except scoring.AnalysisError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
