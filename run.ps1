@@ -35,6 +35,16 @@ $browseHost = $serverHost
 if ($serverHost -eq '0.0.0.0') { $browseHost = '127.0.0.1' }
 $url = "http://${browseHost}:${port}/"
 
+Push-Location (Join-Path $PSScriptRoot 'frontend')
+try {
+    if (-not (Test-Path 'node_modules')) {
+        & npm.cmd ci
+        if ($LASTEXITCODE -ne 0) { throw 'Frontend dependency installation failed.' }
+    }
+    & npm.cmd run build
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
+} finally { Pop-Location }
+
 Write-Host "Pronunciation Trainer -> $url" -ForegroundColor Cyan
 Write-Host 'The speech models load in the background; the page says when it is ready.' -ForegroundColor DarkGray
 

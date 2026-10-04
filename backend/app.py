@@ -31,6 +31,7 @@ logging.basicConfig(level=os.environ.get("PRONOUNCE_LOG_LEVEL", "INFO"),
 logger = logging.getLogger("pronounce")
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
+DIST = FRONTEND / "dist"
 
 SETTINGS = settings_module.load()
 
@@ -71,6 +72,8 @@ async def lifespan(app):
 
     if SETTINGS.warm_on_start:
         threading.Thread(target=_warm, name="warm-models", daemon=True).start()
+    else:
+        _state["models"] = "ready"  # Models load lazily on first analysis.
     yield
 
 
@@ -83,10 +86,12 @@ app = FastAPI(title="Pronunciation Trainer", version="1.0.0", lifespan=lifespan)
 
 @app.get("/", include_in_schema=False)
 def index():
-    return HTMLResponse((FRONTEND / "index.html").read_text(encoding="utf-8"))
+    if not (DIST / "index.html").is_file():
+        return HTMLResponse("Frontend not built. Run npm ci and npm run build in frontend/.", status_code=503)
+    return HTMLResponse((DIST / "index.html").read_text(encoding="utf-8"))
 
 
-app.mount("/static", StaticFiles(directory=FRONTEND), name="static")
+app.mount("/assets", StaticFiles(directory=DIST / "assets", check_dir=False), name="assets")
 
 
 # Status
