@@ -19,12 +19,17 @@ import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+import ai_advice
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import elevenlabs as elevenlabs_module
 from . import scoring, settings as settings_module
+
+load_dotenv()
 
 logging.basicConfig(level=os.environ.get("PRONOUNCE_LOG_LEVEL", "INFO"),
                     format="%(asctime)s %(levelname)-7s %(name)s  %(message)s")
@@ -59,6 +64,11 @@ async def lifespan(app):
     _state["native"] = scoring.init(SETTINGS)
     if _state["native"]["missing"]:
         logger.warning("Missing system dependencies: %s", ", ".join(_state["native"]["missing"]))
+
+    if SETTINGS.gemini_api_key:
+        logger.info("Gemini pronunciation feedback enabled (model %s)", SETTINGS.gemini_model_id)
+    else:
+        logger.info("Gemini pronunciation feedback disabled (set GEMINI_API_KEY or GOOGLE_API_KEY)")
 
     if SETTINGS.elevenlabs_enabled:
         _client = elevenlabs_module.ElevenLabs(SETTINGS)
@@ -217,7 +227,9 @@ def analyze(file: UploadFile = File(...), expected_text: str = Form(...), voice_
     try:
         upload_path = _save_upload(file)
         wav_path = _to_wav(upload_path)
-        return scoring.analyze(wav_path, expected_text, voice_id or None)
+        result = scoring.analyze(wav_path, expected_text, voice_id or None)
+        _add_ai_feedback(result)
+        return result
     except scoring.AnalysisError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except HTTPException:
@@ -232,6 +244,34 @@ def analyze(file: UploadFile = File(...), expected_text: str = Form(...), voice_
                     os.remove(path)
                 except OSError:
                     pass
+
+
+def _add_ai_feedback(result):
+    result["ai_feedback"] = None
+    if not SETTINGS.gemini_api_key:
+        result["ai_feedback_error"] = (
+            "AI feedback is not configured. Set GEMINI_API_KEY or GOOGLE_API_KEY "
+            "in the root .env file or server environment, then restart the server."
+        )
+        return
+
+    entries = [
+        (word["word"], word.get("heard", ""), word.get("expected", ""))
+        for word in result.get("words", [])
+    ]
+    if not entries:
+        result["ai_feedback_error"] = "No word-level pronunciation results were available for AI feedback."
+        return
+
+    try:
+        result["ai_feedback"] = ai_advice.generate_pronunciation_feedback(
+            entries,
+            api_key=SETTINGS.gemini_api_key,
+            model=SETTINGS.gemini_model_id,
+        )
+    except Exception:  # noqa: BLE001 - a failed optional AI service must not discard the score
+        logger.exception("AI feedback generation failed")
+        result["ai_feedback_error"] = "AI feedback could not be generated. Please try again later."
 
 
 # Helpers

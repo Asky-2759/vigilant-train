@@ -4,6 +4,8 @@ openpronounce==0.3.0
 fastapi>=0.110
 uvicorn[standard]>=0.27
 python-multipart>=0.0.9
+google-genai>=1.0
+python-dotenv>=1.0
 
 sounddevice>=0.4
 numpy

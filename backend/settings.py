@@ -9,6 +9,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import load_dotenv as _load_dotenv
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # The voices offered in the picker, in display order, with the label shown for
@@ -27,19 +29,8 @@ ELEVENLABS_BACKEND = "elevenlabs"
 
 
 def load_dotenv(path=None):
-    #Load KEY=value lines from .env into the environment without overriding it
-    
-    path = Path(path) if path else ROOT / ".env"
-    if not path.is_file():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key, value = key.strip(), value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = value
+    """Load standard .env syntax without overriding existing environment values."""
+    _load_dotenv(dotenv_path=Path(path) if path else ROOT / ".env", override=False)
 
 
 def _flag(name, default=False):
@@ -61,6 +52,8 @@ class Settings:
     # Resolved configuration for one run of the server
 
     api_key: str = ""
+    gemini_api_key: str = ""
+    gemini_model_id: str = "gemini-2.5-flash"
     voice_id: str = ""
     model_id: str = "eleven_multilingual_v2"
     # Model used when speaking raw IPA through a <phoneme> tag. Only some
@@ -108,6 +101,11 @@ def load():
         acoustic_good = None
     return Settings(
         api_key=os.environ.get("ELEVENLABS_API_KEY", "").strip(),
+        gemini_api_key=(
+            os.environ.get("GEMINI_API_KEY", "").strip()
+            or os.environ.get("GOOGLE_API_KEY", "").strip()
+        ),
+        gemini_model_id=os.environ.get("GEMINI_MODEL_ID", "gemini-2.5-flash").strip(),
         voice_id=os.environ.get("ELEVENLABS_VOICE_ID", "").strip(),
         model_id=os.environ.get("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2").strip(),
         phoneme_model_id=os.environ.get("ELEVENLABS_PHONEME_MODEL_ID", "eleven_flash_v2").strip(),

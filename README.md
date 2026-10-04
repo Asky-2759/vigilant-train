@@ -18,6 +18,13 @@ Put `ELEVENLABS_API_KEY=your-key` in the local `.env` to enable ElevenLabs refer
 speech. Never commit `.env`. Without a key, the backend uses its existing gTTS
 fallback. eSpeak NG and ffmpeg are still required by the backend.
 
+Put `GEMINI_API_KEY=your-key` (or `GOOGLE_API_KEY=your-key`) in the root `.env`
+file to show generated pronunciation advice alongside each score.
+`GEMINI_MODEL_ID` can override the default `gemini-2.5-flash` model. Restart
+the server after changing `.env` or its environment variables. AI feedback uses
+the analyzed words' heard and target IPA; scoring still works if Gemini is not
+configured or unavailable.
+
 Enter a sentence, listen to its reference, choose manual or automatic recording,
 then record. Automatic mode waits up to 30 seconds for sound and stops after
 three seconds of quiet. Either mode limits speech recording to 30 seconds.

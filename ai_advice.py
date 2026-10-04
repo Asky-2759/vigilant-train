@@ -1,43 +1,53 @@
 import json
 
-from google import genai
-
-client = genai.Client(api_key="YOUR_API_KEY")
+DEFAULT_MODEL = "gemini-2.5-flash"
 
 
 def prepare_pronunciation_payload(entries: list[tuple[str, str, str]]) -> str:
-    # Prepare a pronunciation-feedback prompt from (word, phonemes, target IPA) entries.
+    # uild a prompt from (word, heard IPA, target IPA) entries.
     pronunciation_data = [
-        {"word": word, "phoneme_transcription": phonemes, "target_ipa": ipa}
-        for word, phonemes, ipa in entries
+        {"word": word, "phoneme_transcription": heard, "target_ipa": ipa}
+        for word, heard, ipa in entries
     ]
+
+    if not pronunciation_data:
+        raise ValueError("Perfect! There is nothing to improve.")
+
     return (
         "Give concise, supportive pronunciation feedback for each entry. "
-        "Compare the phoneme transcription of the learner's pronunciation with "
-        "the target IPA, and identify only differences supported by the data. "
-        "For each entry, explain the likely sound to work on and give a practical "
-        "articulation tip (such as lip or tongue placement) when relevant. "
-        "Do not claim to have heard audio or observed the learner's mouth. "
-        "If the transcription does not reveal a clear issue, say so rather than "
-        "inventing one. Keep the feedback understandable to a language learner."
-        "Acknowledge any possible consonant drifts or vowel shifts that may be the result "
-        "of the speaker's accent but evaluate them fairly and if it affects the clarity of "
-        "the speech.\n\n"
+        "Compare the learner's phoneme transcription with the target IPA, and "
+        "identify only differences supported by the data. For each entry, explain "
+        "the likely sound to work on and give a practical articulation tip when "
+        "relevant. Do not claim to have heard audio or observed the learner's "
+        "mouth. If the transcription does not reveal a clear issue, say so rather "
+        "than inventing one. Keep the feedback understandable to a language "
+        "learner. Acknowledge possible consonant drifts or vowel shifts that may "
+        "result from the speaker's accent, evaluating them fairly and noting "
+        "whether they affect clarity.\n\n"
         "Pronunciation entries (JSON):\n"
         f"{json.dumps(pronunciation_data, ensure_ascii=False)}"
     )
 
 
-# Each entry contains the word, its phoneme transcription, and the target IPA.
-entries = []
+def generate_pronunciation_feedback(
+    entries: list[tuple[str, str, str]],
+    *,
+    api_key: str,
+    model: str = DEFAULT_MODEL,
+) -> str:
+    # Generate learner-facing feedback using the configured Gemini model.
+    if not entries:
+        raise ValueError("at least one pronunciation entry is required")
+    if not api_key:
+        raise ValueError("a Gemini API key is required")
 
-interaction = client.interactions.create(
-    model="gemini-3.8-flash",
-    input=prepare_pronunciation_payload(entries),
-)
+    from google import genai
 
-print(interaction.output_text)
-
-# Example: 
-# (hello, hɛˈloʊ, həˈloʊ)
-# (world, wɜːrld, wɝld) 
+    response = genai.Client(api_key=api_key).models.generate_content(
+        model=model,
+        contents=prepare_pronunciation_payload(entries),
+    )
+    feedback = response.text
+    if not feedback or not feedback.strip():
+        raise RuntimeError("Gemini returned empty pronunciation feedback")
+    return feedback.strip()
