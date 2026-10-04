@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Landing from './pages/Landing';
 import Practice from './pages/Practice';
 import './styles.css';
+import './pages/studio.css';
 
 export default function App() {
   const [page, setPage] = useState<'home' | 'practice'>('home');
